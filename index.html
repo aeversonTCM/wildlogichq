@@ -914,15 +914,30 @@ async function checkHqAccess() {
         const response = await fetch(`${CONFIG.googleSheetsUrl}?action=verifyAccess&code=${encodeURIComponent(code)}`);
         const result = await response.json();
         
-        hideLoading();
-        
         if (result.access === 'admin' || result.access === 'viewer') {
             accessLevel = result.access;
             sessionStorage.setItem('hqAccess', accessLevel);
+            
+            // For admin, pre-fill Tactacam credentials
+            if (accessLevel === 'admin') {
+                try {
+                    const credsResponse = await fetch(`${CONFIG.googleSheetsUrl}?action=getViewerCredentials&session=viewer`);
+                    const creds = await credsResponse.json();
+                    if (creds.email && creds.password) {
+                        document.getElementById('email').value = creds.email;
+                        document.getElementById('password').value = creds.password;
+                    }
+                } catch (e) {
+                    console.log('Could not pre-fill credentials');
+                }
+            }
+            
+            hideLoading();
             document.getElementById('hqGate').style.display = 'none';
             document.getElementById('loginSection').style.display = 'flex';
             applyAccessLevel();
         } else {
+            hideLoading();
             document.getElementById('hqError').style.display = 'block';
             document.getElementById('hqPassword').value = '';
         }
