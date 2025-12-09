@@ -941,25 +941,20 @@ function applyAccessLevel() {
         el.style.display = accessLevel === 'admin' ? '' : 'none';
     });
     
-    // Show appropriate login options
-    if (accessLevel === 'viewer') {
-        document.getElementById('viewOnlySection').style.display = 'block';
-        document.getElementById('adminLoginSection').style.display = 'block';
-        document.getElementById('loginSubtitle').textContent = 'Choose how to access';
-    } else {
-        document.getElementById('viewOnlySection').style.display = 'none';
-        document.getElementById('adminLoginSection').style.display = 'block';
-        document.getElementById('loginSubtitle').textContent = 'Sign in with your Tactacam account';
-    }
+    // Show login options - both admin and viewer see Quick View option
+    document.getElementById('viewOnlySection').style.display = 'block';
+    document.getElementById('adminLoginSection').style.display = 'block';
+    document.getElementById('loginSubtitle').textContent = 'Choose how to access';
     
     console.log('Access level:', accessLevel);
 }
 
 async function viewOnlyLogin() {
     showLoading('Connecting...');
+    document.getElementById('loginError').style.display = 'none';
     
     try {
-        // Get stored credentials from Apps Script
+        // Step 1: Get stored credentials from Apps Script
         const response = await fetch(`${CONFIG.googleSheetsUrl}?action=getViewerCredentials&session=viewer`);
         const creds = await response.json();
         
@@ -967,7 +962,7 @@ async function viewOnlyLogin() {
             throw new Error('Could not retrieve credentials');
         }
         
-        // Login with stored credentials
+        // Step 2: Login to Tactacam
         showLoading('Signing in...');
         const authResponse = await fetch(CONFIG.cognitoUrl, {
             method: 'POST',
@@ -981,17 +976,71 @@ async function viewOnlyLogin() {
         
         const authData = await authResponse.json();
         
-        if (authData.AuthenticationResult) {
-            accessToken = authData.AuthenticationResult.AccessToken;
-            localStorage.setItem('trailcam_token', accessToken);
-            localStorage.setItem('trailcam_email', 'QuickView');
-            await initializeApp();
-            
-            // Auto-refresh to get new photos after cache loads
-            refreshPhotos();
-        } else {
+        if (!authData.AuthenticationResult) {
             throw new Error(authData.message || 'Login failed');
         }
+        
+        accessToken = authData.AuthenticationResult.AccessToken;
+        localStorage.setItem('trailcam_token', accessToken);
+        localStorage.setItem('trailcam_email', 'QuickView');
+        
+        // Step 3: Initialize app (loads from cache)
+        await initializeApp();
+        
+        // Step 4: Refresh for new photos in background
+        // Admin: sync new photos to cache
+        // Viewer: just display new photos, don't sync
+        showSyncStatus('Checking for new photos...', 'syncing');
+        
+        try {
+            const existingIds = new Set(allPhotos.map(p => p.photoId));
+            let newPhotos = [];
+            let page = 0;
+            
+            while (page < 10) { // Check first 10 pages for new photos
+                const resp = await fetch(
+                    `${CONFIG.apiBaseUrl}/photos?size=100&page=${page}&includeWeatherData=true`,
+                    { headers: { 'Authorization': `Bearer ${accessToken}` } }
+                );
+                
+                if (!resp.ok) break;
+                const data = await resp.json();
+                if (!data.response?.photos?.length) break;
+                
+                let foundExisting = false;
+                for (const photo of data.response.photos) {
+                    if (existingIds.has(photo.photoId)) { foundExisting = true; continue; }
+                    if (!photo.photoDateUtc && !photo.photoDate) continue;
+                    if (photo.cameraName) cameras.add(photo.cameraName);
+                    allPhotos.unshift(photo);
+                    newPhotos.push(photo);
+                }
+                if (foundExisting) break;
+                page++;
+            }
+            
+            if (newPhotos.length > 0) {
+                applyFilters();
+                
+                // Admin syncs to cache, viewer does not
+                if (accessLevel === 'admin') {
+                    showSyncStatus(`Syncing ${newPhotos.length} new photos...`, 'syncing');
+                    await syncPhotosToCache(newPhotos);
+                    showSyncStatus(`${newPhotos.length} new photos synced!`, 'complete');
+                } else {
+                    showSyncStatus(`${newPhotos.length} new photos loaded`, 'complete');
+                }
+                setTimeout(() => hideSyncStatus(), 3000);
+            } else {
+                showSyncStatus('All photos up to date', 'complete');
+                setTimeout(() => hideSyncStatus(), 2000);
+            }
+        } catch (refreshError) {
+            console.error('Refresh error:', refreshError);
+            showSyncStatus('Using cached photos', 'complete');
+            setTimeout(() => hideSyncStatus(), 2000);
+        }
+        
     } catch (error) {
         hideLoading();
         console.error('View only login error:', error);
@@ -1100,8 +1149,10 @@ async function login() {
     }
     
     showLoading('Signing in...');
+    document.getElementById('loginError').style.display = 'none';
     
     try {
+        // Step 1: Login to Tactacam
         const response = await fetch(CONFIG.cognitoUrl, {
             method: 'POST',
             headers: {
@@ -1117,21 +1168,69 @@ async function login() {
         
         const data = await response.json();
         
-        if (data.AuthenticationResult) {
-            accessToken = data.AuthenticationResult.AccessToken;
-            localStorage.setItem('trailcam_token', accessToken);
-            localStorage.setItem('trailcam_email', email);
-            await initializeApp();
-            
-            // Auto-refresh only for admin (who uses cache)
-            // Viewers with own login already loaded fresh from API
-            if (accessLevel === 'admin') {
-                refreshPhotos();
-            }
-        } else {
+        if (!data.AuthenticationResult) {
             showLoginError(data.message || 'Login failed');
             hideLoading();
+            return;
         }
+        
+        accessToken = data.AuthenticationResult.AccessToken;
+        localStorage.setItem('trailcam_token', accessToken);
+        localStorage.setItem('trailcam_email', email);
+        
+        // Step 2: Initialize app (loads from cache for admin, fresh for viewer)
+        await initializeApp();
+        
+        // Step 3: Check for new photos
+        if (accessLevel === 'admin') {
+            // Admin: Check for new photos and sync to cache
+            showSyncStatus('Checking for new photos...', 'syncing');
+            
+            try {
+                const existingIds = new Set(allPhotos.map(p => p.photoId));
+                let newPhotos = [];
+                let page = 0;
+                
+                while (page < 10) { // Check first 10 pages
+                    const resp = await fetch(
+                        `${CONFIG.apiBaseUrl}/photos?size=100&page=${page}&includeWeatherData=true`,
+                        { headers: { 'Authorization': `Bearer ${accessToken}` } }
+                    );
+                    
+                    if (!resp.ok) break;
+                    const photoData = await resp.json();
+                    if (!photoData.response?.photos?.length) break;
+                    
+                    let foundExisting = false;
+                    for (const photo of photoData.response.photos) {
+                        if (existingIds.has(photo.photoId)) { foundExisting = true; continue; }
+                        if (!photo.photoDateUtc && !photo.photoDate) continue;
+                        if (photo.cameraName) cameras.add(photo.cameraName);
+                        allPhotos.unshift(photo);
+                        newPhotos.push(photo);
+                    }
+                    if (foundExisting) break;
+                    page++;
+                }
+                
+                if (newPhotos.length > 0) {
+                    applyFilters();
+                    showSyncStatus(`Syncing ${newPhotos.length} new photos...`, 'syncing');
+                    await syncPhotosToCache(newPhotos);
+                    showSyncStatus(`${newPhotos.length} new photos synced!`, 'complete');
+                    setTimeout(() => hideSyncStatus(), 3000);
+                } else {
+                    showSyncStatus('All photos up to date', 'complete');
+                    setTimeout(() => hideSyncStatus(), 2000);
+                }
+            } catch (refreshError) {
+                console.error('Refresh error:', refreshError);
+                showSyncStatus('Using cached photos', 'complete');
+                setTimeout(() => hideSyncStatus(), 2000);
+            }
+        }
+        // Viewer with own login: already loaded fresh from API in initializeApp, no sync needed
+        
     } catch (error) {
         showLoginError('Connection error: ' + error.message);
         hideLoading();
