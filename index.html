@@ -303,7 +303,7 @@
         .grid-selected-count { color: var(--accent-green); font-weight: bold; font-size: 14px; margin-bottom: 5px; }
         
         /* Dashboard */
-        #chart_main { height: 500px; background: var(--bg-card); border-radius: 8px; }
+        #chart_main { height: 420px; background: var(--bg-card); border-radius: 8px; }
         #chart_polar { width: 500px; height: 500px; }
         #chart_weather { width: 100%; height: 450px; }
         #chart_forecast { height: 300px; }
@@ -2638,7 +2638,7 @@ function createMainChart() {
         type: 'area', name: 'Night (PM)', data: sunsetArray, threshold: 24 * 60 * 60 * 1000, color: 'rgba(50, 50, 80, 0.6)', lineWidth: 0, enableMouseTracking: false, showInLegend: false
     }, {
         type: 'scatter', name: 'Moon', data: moonArray, yAxis: 1, marker: { enabled: false },
-        dataLabels: { enabled: true, y: -20, formatter: function() { return this.point.moonsymbol; }, style: { fontSize: '16px', textOutline: 'none' } },
+        dataLabels: { enabled: true, y: -40, formatter: function() { return this.point.moonsymbol; }, style: { fontSize: '16px', textOutline: 'none' } },
         showInLegend: false, enableMouseTracking: false
     }];
     
