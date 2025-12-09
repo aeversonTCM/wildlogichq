@@ -2637,7 +2637,7 @@ function createMainChart() {
         type: 'area', name: 'Night (PM)', data: sunsetArray, threshold: 24 * 60 * 60 * 1000, color: 'rgba(50, 50, 80, 0.6)', lineWidth: 0, enableMouseTracking: false, showInLegend: false
     }, {
         type: 'scatter', name: 'Moon', data: moonArray, yAxis: 1, marker: { enabled: false },
-        dataLabels: { enabled: true, y: -35, formatter: function() { return this.point.moonsymbol; }, style: { fontSize: '16px', textOutline: 'none' } },
+        dataLabels: { enabled: true, y: -20, formatter: function() { return this.point.moonsymbol; }, style: { fontSize: '16px', textOutline: 'none' } },
         showInLegend: false, enableMouseTracking: false
     }];
     
@@ -2669,16 +2669,16 @@ function createMainChart() {
             enabled: true, 
             itemStyle: { color: '#E0E0E3' }, 
             itemHoverStyle: { color: '#FFF' },
-            verticalAlign: 'top',
-            y: 380
+            verticalAlign: 'bottom',
+            y: 20
         },
         rangeSelector: {
             selected: 1,
             buttons: [{ type: 'week', count: 1, text: '1w' }, { type: 'month', count: 1, text: '1m' }, { type: 'month', count: 3, text: '3m' }, { type: 'all', text: 'All' }],
             inputEnabled: false,
             floating: true,
-            verticalAlign: 'top',
-            y: 380,
+            verticalAlign: 'bottom',
+            y: 20,
             buttonPosition: { align: 'right' },
             buttonTheme: { fill: '#3e3e40', stroke: '#606063', style: { color: '#E0E0E3' }, states: { hover: { fill: '#4e4e50' }, select: { fill: '#1C86EE', style: { color: 'white' } } } }
         },
