@@ -410,21 +410,38 @@
             <div class="text-center mb-4">
                 <i class="bi bi-camera-fill text-success" style="font-size: 3rem;"></i>
                 <h4 class="mt-2">Trail Cam HQ</h4>
-                <p class="text-muted">Sign in with your Tactacam account</p>
+                <p class="text-muted" id="loginSubtitle">Sign in with your Tactacam account</p>
             </div>
-            <div class="mb-3">
-                <label class="form-label">Email</label>
-                <input type="email" class="form-control" id="email" placeholder="your@email.com">
+            
+            <!-- View Only Button (shown for viewers) -->
+            <div id="viewOnlySection" style="display: none;">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-success btn-lg" onclick="viewOnlyLogin()">
+                        <i class="bi bi-eye-fill me-2"></i>Enter View Only Mode
+                    </button>
+                </div>
+                <div class="text-center mt-3">
+                    <small class="text-muted">Browse photos and view the dashboard</small>
+                </div>
             </div>
-            <div class="mb-4">
-                <label class="form-label">Password</label>
-                <input type="password" class="form-control" id="password" placeholder="••••••••">
+            
+            <!-- Admin Login Form (shown for admins) -->
+            <div id="adminLoginSection">
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" id="email" placeholder="your@email.com">
+                </div>
+                <div class="mb-4">
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-control" id="password" placeholder="••••••••">
+                </div>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-success" onclick="login()">
+                        <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
+                    </button>
+                </div>
             </div>
-            <div class="d-grid gap-2">
-                <button class="btn btn-success" onclick="login()">
-                    <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
-                </button>
-            </div>
+            
             <div id="loginError" class="alert alert-danger mt-3" style="display: none;"></div>
         </div>
     </div>
@@ -883,7 +900,60 @@ function applyAccessLevel() {
         el.style.display = accessLevel === 'admin' ? '' : 'none';
     });
     
+    // Show appropriate login section
+    if (accessLevel === 'viewer') {
+        document.getElementById('viewOnlySection').style.display = 'block';
+        document.getElementById('adminLoginSection').style.display = 'none';
+        document.getElementById('loginSubtitle').textContent = 'Click below to view photos';
+    } else {
+        document.getElementById('viewOnlySection').style.display = 'none';
+        document.getElementById('adminLoginSection').style.display = 'block';
+        document.getElementById('loginSubtitle').textContent = 'Sign in with your Tactacam account';
+    }
+    
     console.log('Access level:', accessLevel);
+}
+
+async function viewOnlyLogin() {
+    showLoading('Connecting...');
+    
+    try {
+        // Get stored credentials from Apps Script
+        const response = await fetch(`${CONFIG.googleSheetsUrl}?action=getViewerCredentials&session=viewer`);
+        const creds = await response.json();
+        
+        if (creds.error || !creds.email || !creds.password) {
+            throw new Error('Could not retrieve credentials');
+        }
+        
+        // Login with stored credentials
+        showLoading('Signing in...');
+        const authResponse = await fetch(CONFIG.cognitoUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-amz-json-1.1', 'X-Amz-Target': 'AWSCognitoIdentityProviderService.InitiateAuth' },
+            body: JSON.stringify({
+                AuthFlow: 'USER_PASSWORD_AUTH',
+                ClientId: CONFIG.cognitoClientId,
+                AuthParameters: { USERNAME: creds.email, PASSWORD: creds.password }
+            })
+        });
+        
+        const authData = await authResponse.json();
+        
+        if (authData.AuthenticationResult) {
+            accessToken = authData.AuthenticationResult.AccessToken;
+            localStorage.setItem('trailcam_token', accessToken);
+            localStorage.setItem('trailcam_email', 'Viewer');
+            await initializeApp();
+        } else {
+            throw new Error(authData.message || 'Login failed');
+        }
+    } catch (error) {
+        hideLoading();
+        console.error('View only login error:', error);
+        document.getElementById('loginError').textContent = 'Connection failed. Please try again.';
+        document.getElementById('loginError').style.display = 'block';
+    }
 }
 
 // Check on page load
