@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trail Cam Manager</title>
+    <title>Trail Cam HQ</title>
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -117,11 +117,15 @@
         .spinner-border { width: 3rem; height: 3rem; }
         
         /* Login Section */
-        #loginSection {
+        #hqGate, #loginSection {
             min-height: calc(100vh - 70px);
             display: flex;
             align-items: center;
             justify-content: center;
+        }
+        
+        #loginSection {
+            display: none;
         }
         
         .login-card { max-width: 400px; width: 100%; }
@@ -350,7 +354,7 @@
 <nav class="navbar navbar-expand-lg navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="#">
-            <i class="bi bi-camera-fill text-success me-2"></i>Trail Cam Manager
+            <i class="bi bi-broadcast-pin text-warning me-2"></i>Trail Cam HQ
         </a>
         
         <ul class="nav nav-tabs" id="mainTabs" role="tablist">
@@ -377,13 +381,35 @@
     </div>
 </nav>
 
-<!-- Login Section -->
-<div id="loginSection">
+<!-- Trail Cam HQ Gate -->
+<div id="hqGate">
+    <div class="card login-card">
+        <div class="card-body p-4">
+            <div class="text-center mb-4">
+                <i class="bi bi-shield-lock-fill text-warning" style="font-size: 3rem;"></i>
+                <h4 class="mt-2" style="color: var(--accent-gold);">Trail Cam HQ</h4>
+                <p class="text-muted">Enter access code to continue</p>
+            </div>
+            <div class="mb-4">
+                <input type="password" class="form-control text-center" id="hqPassword" placeholder="Access Code" onkeypress="if(event.key === 'Enter') checkHqAccess()">
+            </div>
+            <div class="d-grid gap-2">
+                <button class="btn btn-warning" onclick="checkHqAccess()">
+                    <i class="bi bi-unlock-fill me-2"></i>Enter
+                </button>
+            </div>
+            <div id="hqError" class="alert alert-danger mt-3" style="display: none;">Invalid access code</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tactacam Login Section -->
+<div id="loginSection" style="display: none;">
     <div class="card login-card">
         <div class="card-body p-4">
             <div class="text-center mb-4">
                 <i class="bi bi-camera-fill text-success" style="font-size: 3rem;"></i>
-                <h4 class="mt-2">Trail Cam Manager</h4>
+                <h4 class="mt-2">Trail Cam HQ</h4>
                 <p class="text-muted">Sign in with your Tactacam account</p>
             </div>
             <div class="mb-3">
@@ -480,13 +506,13 @@
                             <div class="photo-info" id="photoInfo"></div>
                             <div class="keyboard-hint">
                                 <strong>Keyboard:</strong> 
-                                <kbd>←</kbd> Previous, <kbd>→</kbd> Next | 
+                                <kbd>←</kbd> Previous, <kbd>→</kbd> Next<span class="admin-only"> | 
                                 <kbd>B</kbd> Buck, <kbd>D</kbd> Doe, <kbd>T</kbd> Turkey, <kbd>R</kbd> Bear, 
                                 <kbd>P</kbd> Predator, <kbd>I</kbd> Bird, <kbd>H</kbd> Human, <kbd>V</kbd> Vehicle, 
-                                <kbd>O</kbd> Other, <kbd>N</kbd> No Animals | <kbd>G</kbd> Gallery
+                                <kbd>O</kbd> Other, <kbd>N</kbd> No Animals | <kbd>G</kbd> Gallery</span>
                             </div>
                         </div>
-                        <div class="col-lg-3">
+                        <div class="col-lg-3 admin-only">
                             <div class="card">
                                 <div class="card-header">Actions</div>
                                 <div class="card-body d-grid gap-2">
@@ -526,7 +552,7 @@
                                 <button class="btn btn-outline-secondary" onclick="loadMoreGridItems()">Load More</button>
                             </div>
                         </div>
-                        <div class="col-lg-2">
+                        <div class="col-lg-2 admin-only">
                             <div class="card">
                                 <div class="card-header">Bulk Actions</div>
                                 <div class="card-body grid-sidebar">
@@ -800,6 +826,71 @@ const CONFIG = {
     googleSheetsUrl: 'https://script.google.com/macros/s/AKfycbz11U24W_KnkhgpONyk5hESy_d40uTYkTT1BsTzYdEQvnvPYF-N7PMHdtEJdvLpM3o3/exec'
 };
 
+// Access level: 'admin', 'viewer', or null
+let accessLevel = null;
+
+// ============== TRAIL CAM HQ ACCESS ==============
+async function checkHqAccess() {
+    const code = document.getElementById('hqPassword').value;
+    if (!code) {
+        document.getElementById('hqError').style.display = 'block';
+        return;
+    }
+    
+    document.getElementById('hqError').style.display = 'none';
+    showLoading('Verifying access...');
+    
+    try {
+        const response = await fetch(`${CONFIG.googleSheetsUrl}?action=verifyAccess&code=${encodeURIComponent(code)}`);
+        const result = await response.json();
+        
+        hideLoading();
+        
+        if (result.access === 'admin' || result.access === 'viewer') {
+            accessLevel = result.access;
+            sessionStorage.setItem('hqAccess', accessLevel);
+            document.getElementById('hqGate').style.display = 'none';
+            document.getElementById('loginSection').style.display = 'flex';
+            applyAccessLevel();
+        } else {
+            document.getElementById('hqError').style.display = 'block';
+            document.getElementById('hqPassword').value = '';
+        }
+    } catch (error) {
+        hideLoading();
+        console.error('Access check error:', error);
+        document.getElementById('hqError').textContent = 'Connection error. Try again.';
+        document.getElementById('hqError').style.display = 'block';
+    }
+}
+
+function checkHqSession() {
+    const savedAccess = sessionStorage.getItem('hqAccess');
+    if (savedAccess === 'admin' || savedAccess === 'viewer') {
+        accessLevel = savedAccess;
+        document.getElementById('hqGate').style.display = 'none';
+        document.getElementById('loginSection').style.display = 'flex';
+        applyAccessLevel();
+        return true;
+    }
+    return false;
+}
+
+function applyAccessLevel() {
+    // Hide admin-only elements for viewers
+    const adminElements = document.querySelectorAll('.admin-only');
+    adminElements.forEach(el => {
+        el.style.display = accessLevel === 'admin' ? '' : 'none';
+    });
+    
+    console.log('Access level:', accessLevel);
+}
+
+// Check on page load
+document.addEventListener('DOMContentLoaded', function() {
+    checkHqSession();
+});
+
 // ============== STATE ==============
 let accessToken = null;
 let allPhotos = [];
@@ -904,10 +995,13 @@ function showLoginError(msg) {
 
 function logout() {
     accessToken = null;
+    accessLevel = null;
     localStorage.removeItem('trailcam_token');
     localStorage.removeItem('trailcam_email');
-    document.getElementById('loginSection').style.display = 'flex';
+    sessionStorage.removeItem('hqAccess');
     document.getElementById('mainContent').style.display = 'none';
+    document.getElementById('loginSection').style.display = 'none';
+    document.getElementById('hqGate').style.display = 'flex';
     document.getElementById('userDisplay').style.display = 'none';
     document.getElementById('logoutBtn').style.display = 'none';
 }
@@ -1102,6 +1196,9 @@ async function initializeApp() {
             initializeDashboard();
         }
     });
+    
+    // Apply access level restrictions
+    applyAccessLevel();
     
     hideLoading();
 }
@@ -3397,10 +3494,15 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape') { closeZoomModal(); return; }
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || currentView !== 'single') return;
     
+    // Navigation - available to all users
     switch(e.key) {
         case 'ArrowLeft': prevPhoto(); break;
         case 'ArrowRight': case ' ': e.preventDefault(); nextPhoto(); break;
     }
+    
+    // Tagging shortcuts - admin only
+    if (accessLevel !== 'admin') return;
+    
     switch(e.key.toLowerCase()) {
         case 'b': tagPhoto('Buck'); break;
         case 'd': tagPhoto('Doe'); break;
