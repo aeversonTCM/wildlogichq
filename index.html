@@ -314,20 +314,21 @@
             padding: 15px;
             min-height: 500px;
             max-height: 500px;
-            overflow-y: auto;
+            overflow: hidden;
         }
         
         .tooltip-panel img {
             width: 100%;
             height: auto;
             border-radius: 4px;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             display: block;
         }
         
-        .tooltip-panel .info-row {
-            margin-bottom: 5px;
-            font-size: 14px;
+        .tooltip-panel .info-line {
+            margin-bottom: 4px;
+            font-size: 13px;
+            white-space: nowrap;
         }
         
         .tooltip-panel .info-label {
@@ -337,6 +338,11 @@
         .tooltip-panel .info-value {
             color: var(--text-primary);
             font-weight: 500;
+        }
+        
+        .tooltip-panel .info-sep {
+            color: var(--text-muted);
+            margin: 0 6px;
         }
         
         /* Sync Status Bar */
@@ -394,14 +400,14 @@
             <i class="bi bi-broadcast-pin text-warning me-2"></i>Trail Cam HQ
         </a>
         
-        <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+        <ul class="nav nav-tabs" id="mainTabs" role="tablist" style="display: none;">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="photos-tab" data-bs-toggle="tab" data-bs-target="#photosContent" type="button" role="tab">
+                <button class="nav-link" id="photos-tab" data-bs-toggle="tab" data-bs-target="#photosContent" type="button" role="tab">
                     <i class="bi bi-images me-1"></i>Photos
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="dashboard-tab" data-bs-toggle="tab" data-bs-target="#dashboardContent" type="button" role="tab">
+                <button class="nav-link active" id="dashboard-tab" data-bs-toggle="tab" data-bs-target="#dashboardContent" type="button" role="tab">
                     <i class="bi bi-bar-chart-fill me-1"></i>Dashboard
                 </button>
             </li>
@@ -493,7 +499,7 @@
     <div class="tab-content">
         
         <!-- Photos Tab -->
-        <div class="tab-pane fade show active" id="photosContent" role="tabpanel">
+        <div class="tab-pane fade" id="photosContent" role="tabpanel">
             <div class="container-fluid py-3">
                 
                 <!-- Filter Bar -->
@@ -656,7 +662,7 @@
         </div>
         
         <!-- Dashboard Tab -->
-        <div class="tab-pane fade" id="dashboardContent" role="tabpanel">
+        <div class="tab-pane fade show active" id="dashboardContent" role="tabpanel">
             <div class="container-fluid py-3">
                 
                 <!-- Dashboard Filters -->
@@ -1250,6 +1256,7 @@ function logout() {
     localStorage.removeItem('trailcam_email');
     sessionStorage.removeItem('hqAccess');
     document.getElementById('mainContent').style.display = 'none';
+    document.getElementById('mainTabs').style.display = 'none';
     document.getElementById('loginSection').style.display = 'none';
     document.getElementById('hqGate').style.display = 'flex';
     document.getElementById('userDisplay').style.display = 'none';
@@ -1375,6 +1382,7 @@ async function initializeApp() {
     document.getElementById('logoutBtn').style.display = 'inline-block';
     document.getElementById('loginSection').style.display = 'none';
     document.getElementById('mainContent').style.display = 'block';
+    document.getElementById('mainTabs').style.display = 'flex';
     
     // Initialize modals
     galleryModalInstance = new bootstrap.Modal(document.getElementById('galleryModal'));
@@ -1438,19 +1446,28 @@ async function initializeApp() {
     // Hide loading - photos are visible now
     hideLoading();
     
-    // Pre-fetch sun/forecast data in background (needed for dashboard)
+    // Pre-fetch sun/forecast data, then initialize dashboard
     (async () => {
         try {
             await prefetchSunData();
             await processPhotosForPrediction();
             await prefetchForecast();
             console.log('Sun/forecast data ready');
+            
+            // Dashboard is now default tab, initialize it
+            if (!dashboardInitialized) {
+                initializeDashboard();
+            }
         } catch (e) {
             console.error('Prefetch error:', e);
+            // Still try to initialize dashboard even if prefetch fails
+            if (!dashboardInitialized) {
+                initializeDashboard();
+            }
         }
     })();
     
-    // Dashboard tab listener
+    // Dashboard tab listener (for when switching back to dashboard)
     document.getElementById('dashboard-tab').addEventListener('shown.bs.tab', () => {
         if (!dashboardInitialized) {
             initializeDashboard();
@@ -2638,7 +2655,8 @@ function createMainChart() {
         Highcharts.stockChart('chart_main', {
         chart: {
             backgroundColor: '#2a2a2b',
-            style: { fontFamily: "'Segoe UI', sans-serif" }
+            style: { fontFamily: "'Segoe UI', sans-serif" },
+            marginLeft: 60
         },
         title: { text: 'Trail Observations', style: { color: '#E0E0E3', fontSize: '20px' } },
         legend: { enabled: true, itemStyle: { color: '#E0E0E3' }, itemHoverStyle: { color: '#FFF' } },
@@ -2663,10 +2681,16 @@ function createMainChart() {
             gridLineColor: '#444',
             top: '8%',
             height: '92%',
-            labels: { style: { color: '#E0E0E3' }, formatter: function() { return Highcharts.dateFormat('%l %P', this.value); } },
+            opposite: false,
+            labels: { 
+                align: 'right',
+                x: -10,
+                style: { color: '#E0E0E3' }, 
+                formatter: function() { return Highcharts.dateFormat('%l %P', this.value); } 
+            },
             title: { enabled: false }
         }, {
-            top: '0%', height: '6%', min: 0, max: 1, gridLineWidth: 0, labels: { enabled: false }, title: { enabled: false }
+            top: '0%', height: '6%', min: 0, max: 1, gridLineWidth: 0, labels: { enabled: false }, title: { enabled: false }, opposite: false
         }],
         tooltip: {
             enabled: false  // Disable floating tooltip, we'll use the side panel
@@ -3748,15 +3772,26 @@ function updateTooltipPanel(point) {
     if (point.photoUrl) {
         html += `<img src="${point.photoUrl}" alt="Trail cam photo" />`;
     }
-    if (point.label) {
-        html += `<div class="info-row"><span class="info-label">Name:</span> <span class="info-value">${point.label}</span></div>`;
-    }
-    html += `<div class="info-row"><span class="info-label">Camera:</span> <span class="info-value">${point.camera}</span></div>`;
-    html += `<div class="info-row"><span class="info-label">Time:</span> <span class="info-value">${Highcharts.dateFormat('%l:%M %P', point.y)}</span></div>`;
-    html += `<div class="info-row"><span class="info-label">Date:</span> <span class="info-value">${Highcharts.dateFormat('%a, %b %d', point.x)}</span></div>`;
+    
+    // Line 1: Camera | Time
+    html += `<div class="info-line">`;
+    html += `<span class="info-value">${point.camera}</span>`;
+    html += `<span class="info-sep">|</span>`;
+    html += `<span class="info-value">${Highcharts.dateFormat('%l:%M %P', point.y)}</span>`;
+    html += `</div>`;
+    
+    // Line 2: Wind | Date | Name
+    html += `<div class="info-line">`;
     if (point.windSpeed !== '' && point.windDirection !== '') {
-        html += `<div class="info-row"><span class="info-label">Wind:</span> <span class="info-value">${getWindDirection(point.windDirection)} at ${point.windSpeed} MPH</span></div>`;
+        html += `<span class="info-value">${getWindDirection(point.windDirection)} ${point.windSpeed}mph</span>`;
+        html += `<span class="info-sep">|</span>`;
     }
+    html += `<span class="info-value">${Highcharts.dateFormat('%b %d', point.x)}</span>`;
+    if (point.label) {
+        html += `<span class="info-sep">|</span>`;
+        html += `<span class="info-value">${point.label}</span>`;
+    }
+    html += `</div>`;
     
     document.getElementById('tooltipPanel').innerHTML = html;
 }
