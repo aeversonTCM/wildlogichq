@@ -1072,7 +1072,7 @@ async function initializeApp() {
         });
         populateCameraFilter();
         filteredPhotos = [...allPhotos];
-        displayCurrentPhoto();
+        applyFilters();
         
         console.log(`Loaded ${allPhotos.length} photos from cache`);
         
