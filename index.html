@@ -432,6 +432,30 @@
             color: #fff;
         }
         
+        .zoom-rapid-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: var(--text-muted);
+            font-size: 13px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        
+        .zoom-rapid-checkbox input {
+            accent-color: var(--accent-red);
+            cursor: pointer;
+        }
+        
+        .zoom-rapid-checkbox:hover {
+            color: var(--accent-red);
+        }
+        
+        .zoom-delete-section {
+            display: flex;
+            align-items: center;
+        }
+        
         /* Quick Tag Progress Bar */
         .zoom-progress-wrapper {
             padding: 0;
@@ -3092,8 +3116,12 @@ function updateZoomModal() {
     infoHtml += '</div>';
     infoHtml += '</div>';
     
-    // Delete button on right
+    // Rapid checkbox and Delete button on right
+    const rapidChecked = document.getElementById('rapidDeleteCheckbox')?.checked ? 'checked' : '';
+    infoHtml += `<div class="zoom-delete-section">`;
+    infoHtml += `<label class="zoom-rapid-checkbox"><input type="checkbox" id="rapidDeleteCheckbox" ${rapidChecked}> Rapid</label>`;
     infoHtml += `<button class="zoom-delete-btn" onclick="zoomDeletePhoto()"><i class="bi bi-trash"></i> Delete</button>`;
+    infoHtml += `</div>`;
     
     document.getElementById('zoomInfo').innerHTML = infoHtml;
     
@@ -3265,7 +3293,8 @@ async function zoomDeletePhoto() {
     const photo = filteredPhotos[zoomIndex];
     if (!photo) return;
     
-    if (!confirm(`Delete this photo permanently?`)) return;
+    const rapidMode = document.getElementById('rapidDeleteCheckbox')?.checked;
+    if (!rapidMode && !confirm(`Delete this photo permanently?`)) return;
     
     try {
         const response = await fetch(`${CONFIG.apiBaseUrl}/photos/${photo.photoId}`, {
