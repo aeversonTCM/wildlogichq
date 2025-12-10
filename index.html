@@ -2437,9 +2437,6 @@ async function initializeDashboard() {
     // Process photos for chart
     await processPhotosForChart();
     
-    console.log('Chart arrays:', Object.keys(tagArrays).map(t => `${t}: ${tagArrays[t].length}`).join(', '));
-    console.log('Sun arrays - Sunrise:', sunriseArray.length, 'Moon:', moonArray.length);
-    
     createMainChart();
     createPolarChart();
     createWeatherChart();
@@ -2577,8 +2574,17 @@ async function prefetchSunData() {
         }
     }
     
-    // Only fetch dates not already in cache - limit to 20 per session to avoid rate limits
-    const datesToFetch = Array.from(uniqueDates).filter(d => !sunData[d]).slice(0, 20);
+    // Check if sun data has default/fallback values that should be re-fetched
+    const isDefaultValue = (sun) => {
+        if (!sun) return true;
+        // Old defaults: 7am/6pm, New defaults: 00:01/23:59
+        const oldDefault = sun.sunrise === 25200000 && sun.sunset === 64800000;
+        const newDefault = sun.sunrise === 60000 && sun.sunset === 86340000;
+        return oldDefault || newDefault;
+    };
+    
+    // Fetch dates not in cache OR with default values - limit to 20 per session to avoid rate limits
+    const datesToFetch = Array.from(uniqueDates).filter(d => !sunData[d] || isDefaultValue(sunData[d])).slice(0, 20);
     
     if (datesToFetch.length === 0) {
         console.log('All sun data already cached');
@@ -2589,10 +2595,15 @@ async function prefetchSunData() {
     const newSunData = {};
     
     for (const dateStr of datesToFetch) {
+        // Clear any existing default value so getSunData will re-fetch
+        if (sunData[dateStr] && isDefaultValue(sunData[dateStr])) {
+            delete sunData[dateStr];
+        }
+        
         await getSunData(dateStr);
         
-        // Track newly fetched data for cache sync
-        if (sunData[dateStr]) {
+        // Track newly fetched data for cache sync (only if not a default value)
+        if (sunData[dateStr] && !isDefaultValue(sunData[dateStr])) {
             newSunData[dateStr] = sunData[dateStr];
         }
         
@@ -2715,8 +2726,8 @@ async function getSunData(dateStr) {
         
         // Handle rate limit - use calculated values instead
         if (response.status === 429) {
-            console.warn('Visual Crossing rate limit hit, using calculated values for', dateStr);
-            sunData[dateStr] = { sunrise: timeToMs('07:00:00'), sunset: timeToMs('18:00:00'), moonphase: calculateMoonPhase(dateStr) };
+            console.warn('Visual Crossing rate limit hit, using default values for', dateStr);
+            sunData[dateStr] = { sunrise: timeToMs('00:01:00'), sunset: timeToMs('23:59:00'), moonphase: calculateMoonPhase(dateStr) };
             return sunData[dateStr];
         }
         
@@ -2730,17 +2741,15 @@ async function getSunData(dateStr) {
                 moonphase: day.moonphase || calculateMoonPhase(dateStr)
             };
         } else {
-            sunData[dateStr] = { sunrise: timeToMs('07:00:00'), sunset: timeToMs('18:00:00'), moonphase: calculateMoonPhase(dateStr) };
+            sunData[dateStr] = { sunrise: timeToMs('00:01:00'), sunset: timeToMs('23:59:00'), moonphase: calculateMoonPhase(dateStr) };
         }
     } catch (e) {
-        sunData[dateStr] = { sunrise: timeToMs('07:00:00'), sunset: timeToMs('18:00:00'), moonphase: calculateMoonPhase(dateStr) };
+        sunData[dateStr] = { sunrise: timeToMs('00:01:00'), sunset: timeToMs('23:59:00'), moonphase: calculateMoonPhase(dateStr) };
     }
     return sunData[dateStr];
 }
 
 async function processPhotosForChart() {
-    console.log('processPhotosForChart called, allPhotos:', allPhotos.length);
-    
     sunriseArray = []; sunsetArray = []; moonArray = [];
     tagArrays = {};
     dashboardPhotos = [];
@@ -2791,9 +2800,6 @@ async function processPhotosForChart() {
         dashboardPhotos.push(processedPhoto);
     }
     
-    console.log('Processed photos for chart:', dashboardPhotos.length);
-    console.log('Unique dates:', uniqueDates.size);
-    
     // Sun data already prefetched at login, just ensure any missing dates are fetched
     const datesToFetch = Array.from(uniqueDates).filter(d => !sunData[d]).slice(0, 20);
     if (datesToFetch.length > 0) {
@@ -2824,20 +2830,7 @@ async function processPhotosForChart() {
     });
     
     // Build sun arrays
-    console.log('Building sun arrays. uniqueDates:', uniqueDates.size, 'sunData keys:', Object.keys(sunData).length);
     const sortedDates = Array.from(uniqueDates).sort();
-    console.log('First 5 sorted dates:', sortedDates.slice(0, 5));
-    console.log('First 5 sunData entries:');
-    sortedDates.slice(0, 5).forEach(d => {
-        const sun = sunData[d];
-        if (sun) {
-            const sunriseTime = new Date(sun.sunrise).toISOString().substr(11, 8);
-            const sunsetTime = new Date(sun.sunset).toISOString().substr(11, 8);
-            console.log(`  ${d}: sunrise=${sunriseTime} (${sun.sunrise}), sunset=${sunsetTime} (${sun.sunset})`);
-        } else {
-            console.log(`  ${d}: NO SUN DATA`);
-        }
-    });
     
     sortedDates.forEach(dateStr => {
         const dateMs = new Date(dateStr + 'T12:00:00').getTime();
@@ -2849,23 +2842,12 @@ async function processPhotosForChart() {
         }
     });
     
-    console.log('Sun arrays built - sunrise:', sunriseArray.length, 'sunset:', sunsetArray.length);
-    if (sunriseArray.length > 0) {
-        console.log('Sample sunriseArray[0]:', sunriseArray[0]);
-        console.log('Sample sunsetArray[0]:', sunsetArray[0]);
-    }
-    
-    console.log('Tag arrays created:', Object.keys(tagArrays));
-    Object.keys(tagArrays).forEach(t => console.log(`  ${t}: ${tagArrays[t].length}`));
-    
     // Populate filter dropdowns
     populateDashboardFilters();
 }
 
 function createMainChart() {
-    console.log('createMainChart called');
     const container = document.getElementById('chart_main');
-    console.log('chart_main container:', container);
     
     if (!container) {
         console.error('chart_main container not found!');
