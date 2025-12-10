@@ -470,7 +470,16 @@
                     </button>
                 </div>
                 <div class="text-center mb-3">
-                    <small class="text-muted">Full admin access</small>
+                    <small class="text-muted">Full admin access with cache sync</small>
+                </div>
+                <hr>
+                <div class="d-grid gap-2 mb-3">
+                    <button class="btn btn-outline-secondary" onclick="viewOnlyLogin()">
+                        <i class="bi bi-eye-fill me-2"></i>Quick View Mode
+                    </button>
+                </div>
+                <div class="text-center mb-3">
+                    <small class="text-muted">View latest photos without syncing cache</small>
                 </div>
             </div>
             
@@ -2800,7 +2809,7 @@ function createMainChart() {
             align: 'left',
             verticalAlign: 'bottom',
             x: 10,
-            y: 5
+            y: 20
         },
         rangeSelector: {
             selected: 1,
@@ -2812,7 +2821,7 @@ function createMainChart() {
                 align: 'right',
                 x: -10
             },
-            y: 5,
+            y: 20,
             buttonTheme: { fill: '#3e3e40', stroke: '#606063', style: { color: '#E0E0E3' }, states: { hover: { fill: '#4e4e50' }, select: { fill: '#1C86EE', style: { color: 'white' } } } }
         },
         navigator: { enabled: true, height: 30, margin: 10 },
