@@ -433,6 +433,15 @@
         </ul>
         
         <div class="d-flex align-items-center gap-3">
+            <span class="text-muted small" id="cacheStatus" style="display: none;">
+                <i class="bi bi-hdd me-1"></i><span id="cacheStatusText">Local</span>
+            </span>
+            <button class="btn btn-outline-info btn-sm" id="cloudSyncBtn" onclick="syncToCloudBackup()" style="display: none;" title="Sync to Cloud Backup">
+                <i class="bi bi-cloud-upload"></i>
+            </button>
+            <button class="btn btn-outline-warning btn-sm" id="clearCacheBtn" onclick="confirmClearCache()" style="display: none;" title="Clear Local Cache">
+                <i class="bi bi-trash"></i>
+            </button>
             <span class="text-muted" id="userDisplay" style="display: none;">
                 <i class="bi bi-person-circle me-1"></i><span id="userName"></span>
             </span>
@@ -1418,16 +1427,106 @@ function isCacheEnabled() {
     return CONFIG.googleSheetsUrl && CONFIG.googleSheetsUrl !== 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
 }
 
-async function loadFromCache() {
+// ============== LOCAL STORAGE CACHE (PRIMARY - INSTANT) ==============
+const LOCAL_CACHE_KEY = 'trailcam_cache_v2';
+const LOCAL_CACHE_VERSION = 2;
+
+function saveToLocalCache(data) {
+    try {
+        const cacheData = {
+            version: LOCAL_CACHE_VERSION,
+            timestamp: Date.now(),
+            ...data
+        };
+        localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(cacheData));
+        console.log('Saved to local cache:', {
+            photos: data.photos?.length || 0,
+            tags: data.tags?.length || 0,
+            galleries: data.galleries?.length || 0,
+            sunDataDates: Object.keys(data.sunData || {}).length
+        });
+        return true;
+    } catch (e) {
+        console.error('Local cache save error:', e);
+        // If quota exceeded, try clearing old data
+        if (e.name === 'QuotaExceededError') {
+            console.warn('localStorage quota exceeded, clearing old cache');
+            localStorage.removeItem(LOCAL_CACHE_KEY);
+        }
+        return false;
+    }
+}
+
+function loadFromLocalCache() {
+    try {
+        const cached = localStorage.getItem(LOCAL_CACHE_KEY);
+        if (!cached) return null;
+        
+        const data = JSON.parse(cached);
+        
+        // Check version compatibility
+        if (data.version !== LOCAL_CACHE_VERSION) {
+            console.log('Local cache version mismatch, clearing');
+            localStorage.removeItem(LOCAL_CACHE_KEY);
+            return null;
+        }
+        
+        // Check if cache is stale (older than 7 days)
+        const cacheAge = Date.now() - (data.timestamp || 0);
+        const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
+        if (cacheAge > maxAge) {
+            console.log('Local cache is stale, will refresh from cloud');
+            // Don't clear - still use it but mark for refresh
+            data._stale = true;
+        }
+        
+        console.log('Loaded from local cache:', {
+            photos: data.photos?.length || 0,
+            tags: data.tags?.length || 0,
+            galleries: data.galleries?.length || 0,
+            sunDataDates: Object.keys(data.sunData || {}).length,
+            ageHours: Math.round(cacheAge / (60 * 60 * 1000))
+        });
+        
+        return data;
+    } catch (e) {
+        console.error('Local cache load error:', e);
+        return null;
+    }
+}
+
+function updateLocalCacheSunData(newSunData) {
+    try {
+        const cached = localStorage.getItem(LOCAL_CACHE_KEY);
+        if (!cached) return false;
+        
+        const data = JSON.parse(cached);
+        data.sunData = { ...data.sunData, ...newSunData };
+        data.timestamp = Date.now();
+        localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(data));
+        return true;
+    } catch (e) {
+        console.error('Local cache update error:', e);
+        return false;
+    }
+}
+
+function clearLocalCache() {
+    localStorage.removeItem(LOCAL_CACHE_KEY);
+    console.log('Local cache cleared');
+}
+
+// ============== GOOGLE SHEETS CACHE (BACKUP - CLOUD) ==============
+async function loadFromCloudCache() {
     if (!isCacheEnabled()) return null;
     
     try {
-        showLoading('Loading from cache...');
+        showLoading('Loading from cloud backup...');
         const response = await fetch(`${CONFIG.googleSheetsUrl}?action=getAll`);
-        if (!response.ok) throw new Error('Cache fetch failed: ' + response.status);
+        if (!response.ok) throw new Error('Cloud cache fetch failed: ' + response.status);
         const data = await response.json();
         if (data.error) throw new Error(data.error);
-        console.log('Loaded from cache:', {
+        console.log('Loaded from cloud cache:', {
             photos: data.photos?.length || 0,
             tags: data.tags?.length || 0,
             galleries: data.galleries?.length || 0,
@@ -1436,9 +1535,44 @@ async function loadFromCache() {
         });
         return data;
     } catch (error) {
-        console.error('Cache load error:', error);
+        console.error('Cloud cache load error:', error);
         return null;
     }
+}
+
+// ============== HYBRID CACHE LOADER ==============
+async function loadFromCache() {
+    // Try local cache first (instant)
+    const localData = loadFromLocalCache();
+    
+    if (localData && localData.photos && localData.photos.length > 0) {
+        // Local cache hit!
+        if (localData._stale) {
+            console.log('Using stale local cache, will sync from cloud in background');
+            // Schedule background cloud sync
+            setTimeout(async () => {
+                const cloudData = await loadFromCloudCache();
+                if (cloudData && cloudData.photos) {
+                    saveToLocalCache(cloudData);
+                    console.log('Background cloud sync complete');
+                }
+            }, 5000);
+        }
+        return localData;
+    }
+    
+    // No local cache - try cloud
+    if (!isCacheEnabled()) return null;
+    
+    console.log('No local cache, loading from cloud...');
+    const cloudData = await loadFromCloudCache();
+    
+    if (cloudData && cloudData.photos && cloudData.photos.length > 0) {
+        // Save to local cache for next time
+        saveToLocalCache(cloudData);
+    }
+    
+    return cloudData;
 }
 
 async function postToCache(data) {
@@ -1457,65 +1591,224 @@ async function postToCache(data) {
     }
 }
 
+// Save current state to local cache
+function saveCurrentStateToLocalCache() {
+    const cacheData = {
+        photos: allPhotos,
+        tags: Object.keys(tagsLookup).map(name => ({ name, tagId: tagsLookup[name] })),
+        galleries: galleries,
+        sunData: sunData
+    };
+    saveToLocalCache(cacheData);
+}
+
 async function syncPhotosToCache(photos) {
-    if (!isCacheEnabled() || !photos.length) return;
+    if (!photos.length) return;
     if (accessLevel !== 'admin') { console.log('Viewer - skipping cache write'); return; }
-    console.log('Syncing', photos.length, 'photos to cache...');
-    const result = await postToCache({ action: 'syncPhotos', photos });
-    console.log('Photos synced:', result);
-    return result;
+    
+    // Always update local cache
+    saveCurrentStateToLocalCache();
+    
+    // Sync to cloud if enabled
+    if (isCacheEnabled()) {
+        console.log('Syncing', photos.length, 'photos to cloud cache...');
+        const result = await postToCache({ action: 'syncPhotos', photos });
+        console.log('Photos synced to cloud:', result);
+        return result;
+    }
 }
 
 async function syncTagsToCache(tags) {
-    if (!isCacheEnabled() || !tags.length) return;
+    if (!tags.length) return;
     if (accessLevel !== 'admin') return;
-    const result = await postToCache({ action: 'syncTags', tags });
-    console.log('Tags synced:', result);
+    
+    // Always update local cache
+    saveCurrentStateToLocalCache();
+    
+    // Sync to cloud if enabled
+    if (isCacheEnabled()) {
+        const result = await postToCache({ action: 'syncTags', tags });
+        console.log('Tags synced to cloud:', result);
+    }
 }
 
 async function syncGalleriesToCache(galleriesData) {
-    if (!isCacheEnabled() || !galleriesData.length) return;
+    if (!galleriesData.length) return;
     if (accessLevel !== 'admin') return;
-    const result = await postToCache({ action: 'syncGalleries', galleries: galleriesData });
-    console.log('Galleries synced:', result);
+    
+    // Always update local cache
+    saveCurrentStateToLocalCache();
+    
+    // Sync to cloud if enabled
+    if (isCacheEnabled()) {
+        const result = await postToCache({ action: 'syncGalleries', galleries: galleriesData });
+        console.log('Galleries synced to cloud:', result);
+    }
 }
 
 async function updatePhotoCacheAfterTagChange(photoId, tagIds) {
-    if (!isCacheEnabled()) return;
     if (accessLevel !== 'admin') return;
-    await postToCache({ action: 'updatePhoto', photoId, updates: { tagIds } });
+    
+    // Always update local cache
+    saveCurrentStateToLocalCache();
+    
+    // Sync to cloud if enabled
+    if (isCacheEnabled()) {
+        await postToCache({ action: 'updatePhoto', photoId, updates: { tagIds } });
+    }
 }
 
 async function updatePhotoCacheAfterGalleryChange(photoId, photoGroupIds) {
-    if (!isCacheEnabled()) return;
     if (accessLevel !== 'admin') return;
-    await postToCache({ action: 'updatePhoto', photoId, updates: { photoGroupIds } });
+    
+    // Always update local cache
+    saveCurrentStateToLocalCache();
+    
+    // Sync to cloud if enabled
+    if (isCacheEnabled()) {
+        await postToCache({ action: 'updatePhoto', photoId, updates: { photoGroupIds } });
+    }
 }
 
 async function deletePhotoFromCache(photoId) {
-    if (!isCacheEnabled()) return;
     if (accessLevel !== 'admin') return;
-    await postToCache({ action: 'deletePhoto', photoId });
+    
+    // Always update local cache
+    saveCurrentStateToLocalCache();
+    
+    // Sync to cloud if enabled
+    if (isCacheEnabled()) {
+        await postToCache({ action: 'deletePhoto', photoId });
+    }
 }
 
 async function deletePhotosFromCache(photoIds) {
-    if (!isCacheEnabled() || !photoIds.length) return;
+    if (!photoIds.length) return;
     if (accessLevel !== 'admin') return;
-    await postToCache({ action: 'deletePhotos', photoIds });
+    
+    // Always update local cache
+    saveCurrentStateToLocalCache();
+    
+    // Sync to cloud if enabled
+    if (isCacheEnabled()) {
+        await postToCache({ action: 'deletePhotos', photoIds });
+    }
 }
 
 async function syncSunDataToCache(sunDataToSync) {
-    if (!isCacheEnabled() || Object.keys(sunDataToSync).length === 0) return;
+    if (Object.keys(sunDataToSync).length === 0) return;
     if (accessLevel !== 'admin') return;
-    const result = await postToCache({ action: 'syncSunData', sunData: sunDataToSync });
-    console.log('Sun data synced:', result);
+    
+    // Always update local cache with sun data
+    updateLocalCacheSunData(sunDataToSync);
+    
+    // Sync to cloud if enabled
+    if (isCacheEnabled()) {
+        const result = await postToCache({ action: 'syncSunData', sunData: sunDataToSync });
+        console.log('Sun data synced to cloud:', result);
+    }
 }
 
 async function syncMoonDataToCache(moonDataToSync) {
-    if (!isCacheEnabled() || Object.keys(moonDataToSync).length === 0) return;
+    // Moon data is now included in sunData, but keep for backwards compatibility
+    if (Object.keys(moonDataToSync).length === 0) return;
     if (accessLevel !== 'admin') return;
-    const result = await postToCache({ action: 'syncMoonData', moonData: moonDataToSync });
-    console.log('Moon data synced:', result);
+    
+    // Sync to cloud if enabled
+    if (isCacheEnabled()) {
+        const result = await postToCache({ action: 'syncMoonData', moonData: moonDataToSync });
+        console.log('Moon data synced to cloud:', result);
+    }
+}
+
+// Force sync current state to cloud backup
+async function syncToCloudBackup() {
+    if (!isCacheEnabled()) {
+        alert('Cloud backup is not configured');
+        return;
+    }
+    if (accessLevel !== 'admin') {
+        alert('Only admin can sync to cloud');
+        return;
+    }
+    
+    showLoading('Syncing to cloud backup...');
+    
+    try {
+        // Sync all data to cloud
+        await postToCache({ action: 'syncPhotos', photos: allPhotos });
+        await postToCache({ action: 'syncTags', tags: Object.keys(tagsLookup).map(name => ({ name, tagId: tagsLookup[name] })) });
+        await postToCache({ action: 'syncGalleries', galleries: galleries });
+        await postToCache({ action: 'syncSunData', sunData: sunData });
+        
+        hideLoading();
+        alert('Successfully synced to cloud backup!');
+    } catch (e) {
+        hideLoading();
+        alert('Cloud sync failed: ' + e.message);
+    }
+}
+
+// Clear local cache and reload from cloud
+async function confirmClearCache() {
+    if (!confirm('Clear local cache and reload from cloud backup?\n\nThis will remove all locally cached data.')) {
+        return;
+    }
+    
+    clearLocalCache();
+    
+    if (isCacheEnabled()) {
+        showLoading('Reloading from cloud...');
+        const cloudData = await loadFromCloudCache();
+        if (cloudData && cloudData.photos) {
+            saveToLocalCache(cloudData);
+            alert('Reloaded from cloud backup. Refreshing page...');
+            location.reload();
+        } else {
+            hideLoading();
+            alert('Could not load from cloud. Please login again.');
+        }
+    } else {
+        alert('Local cache cleared. Please login again to reload data.');
+        location.reload();
+    }
+}
+
+// Update cache status indicator
+function updateCacheStatus() {
+    const statusEl = document.getElementById('cacheStatus');
+    const statusText = document.getElementById('cacheStatusText');
+    const cloudBtn = document.getElementById('cloudSyncBtn');
+    const clearBtn = document.getElementById('clearCacheBtn');
+    
+    if (!statusEl) return;
+    
+    const localCache = loadFromLocalCache();
+    const hasLocal = localCache && localCache.photos && localCache.photos.length > 0;
+    const hasCloud = isCacheEnabled();
+    
+    if (accessLevel === 'admin') {
+        statusEl.style.display = 'inline';
+        clearBtn.style.display = 'inline-block';
+        
+        if (hasLocal && hasCloud) {
+            statusText.textContent = 'Local + Cloud';
+            statusText.className = '';
+            cloudBtn.style.display = 'inline-block';
+        } else if (hasLocal) {
+            statusText.textContent = 'Local Only';
+            statusText.className = 'text-warning';
+            cloudBtn.style.display = hasCloud ? 'inline-block' : 'none';
+        } else if (hasCloud) {
+            statusText.textContent = 'Cloud Only';
+            statusText.className = 'text-info';
+            cloudBtn.style.display = 'none';
+        } else {
+            statusText.textContent = 'No Cache';
+            statusText.className = 'text-danger';
+            cloudBtn.style.display = 'none';
+        }
+    }
 }
 
 async function initializeApp() {
@@ -1589,6 +1882,12 @@ async function initializeApp() {
     } else {
         // No cache - load everything from Reveal API
         await loadFromAPI();
+        
+        // Save to local cache for next time (if admin)
+        if (accessLevel === 'admin') {
+            saveCurrentStateToLocalCache();
+            console.log('Saved initial data to local cache');
+        }
     }
     
     // Apply access level restrictions
@@ -1596,6 +1895,9 @@ async function initializeApp() {
     
     // Hide loading - photos are visible now
     hideLoading();
+    
+    // Update cache status indicator
+    updateCacheStatus();
     
     // Pre-fetch sun/forecast data, then initialize dashboard
     (async () => {
