@@ -595,6 +595,44 @@
             </li>
         </ul>
         
+        <!-- Unified Filters (shown after login) -->
+        <div class="d-flex gap-2 align-items-center flex-wrap" id="filterBar" style="display: none;">
+            <select id="locationFilter" class="form-select form-select-sm" style="width: auto;" onchange="applyFilters()">
+                <option value="">All Locations</option>
+            </select>
+            <select id="cameraFilter" class="form-select form-select-sm" style="width: auto;" onchange="applyFilters()">
+                <option value="">All Cameras</option>
+            </select>
+            <select id="tagFilter" class="form-select form-select-sm" style="width: auto;" onchange="applyFilters()">
+                <option value="">All Tags</option>
+                <option value="untagged">Untagged</option>
+                <option value="Buck">Buck</option>
+                <option value="Doe">Doe</option>
+                <option value="Turkey">Turkey</option>
+                <option value="Bear">Bear</option>
+                <option value="Predator">Predator</option>
+                <option value="Bird">Bird</option>
+                <option value="Human">Human</option>
+                <option value="Vehicle/ATV">Vehicle/ATV</option>
+                <option value="Other">Other</option>
+                <option value="No Animals">No Animals</option>
+            </select>
+            <select id="galleryFilter" class="form-select form-select-sm" style="width: auto;" onchange="applyFilters()">
+                <option value="">All Galleries</option>
+            </select>
+            <select id="sortOrder" class="form-select form-select-sm" style="width: auto;" onchange="applyFilters()">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+            </select>
+            <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()">Clear</button>
+            <span class="text-muted ms-2">
+                <strong id="totalCount">0</strong> photos
+            </span>
+            <button class="btn btn-outline-success btn-sm" onclick="refreshPhotos()">
+                <i class="bi bi-arrow-repeat"></i> Fetch New
+            </button>
+        </div>
+        
         <div class="d-flex align-items-center gap-3">
             <span class="text-muted small" id="cacheStatus" style="display: none;">
                 <i class="bi bi-hdd me-1"></i><span id="cacheStatusText">Local</span>
@@ -708,53 +746,6 @@
 
 <!-- Main Content -->
 <div id="mainContent" style="display: none;">
-    
-    <!-- Unified Filter Bar -->
-    <div class="sticky-filters">
-        <div class="container-fluid py-2">
-            <div class="d-flex justify-content-between align-items-center">
-                <div class="d-flex gap-2 align-items-center flex-wrap">
-                    <select id="locationFilter" class="form-select form-select-sm" style="width: auto;" onchange="applyFilters()">
-                        <option value="">All Locations</option>
-                    </select>
-                    <select id="cameraFilter" class="form-select form-select-sm" style="width: auto;" onchange="applyFilters()">
-                        <option value="">All Cameras</option>
-                    </select>
-                    <select id="tagFilter" class="form-select form-select-sm" style="width: auto;" onchange="applyFilters()">
-                        <option value="">All Tags</option>
-                        <option value="untagged">Untagged</option>
-                        <option value="Buck">Buck</option>
-                        <option value="Doe">Doe</option>
-                        <option value="Turkey">Turkey</option>
-                        <option value="Bear">Bear</option>
-                        <option value="Predator">Predator</option>
-                        <option value="Bird">Bird</option>
-                        <option value="Human">Human</option>
-                        <option value="Vehicle/ATV">Vehicle/ATV</option>
-                        <option value="Other">Other</option>
-                        <option value="No Animals">No Animals</option>
-                    </select>
-                    <select id="galleryFilter" class="form-select form-select-sm" style="width: auto;" onchange="applyFilters()">
-                        <option value="">All Galleries</option>
-                    </select>
-                    <select id="sortOrder" class="form-select form-select-sm" style="width: auto;" onchange="applyFilters()">
-                        <option value="newest">Newest First</option>
-                        <option value="oldest">Oldest First</option>
-                    </select>
-                    <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()">Clear</button>
-                </div>
-                <div class="d-flex gap-2 align-items-center">
-                    <span class="text-muted">
-                        <strong id="totalCount">0</strong> photos
-                    </span>
-                    <button class="btn btn-outline-success btn-sm" onclick="refreshPhotos()">
-                        <i class="bi bi-arrow-repeat"></i> Fetch New
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    
     <div class="tab-content">
         
         <!-- Photos Tab -->
@@ -2078,6 +2069,7 @@ async function initializeApp() {
     document.getElementById('loginSection').style.display = 'none';
     document.getElementById('mainContent').style.display = 'block';
     document.getElementById('mainTabs').style.display = 'flex';
+    document.getElementById('filterBar').style.display = 'flex';
     
     // Initialize modals
     galleryModalInstance = new bootstrap.Modal(document.getElementById('galleryModal'));
