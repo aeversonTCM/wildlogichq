@@ -1565,9 +1565,16 @@ async function initializeApp() {
             populateGalleryFilter();
         }
         
-        // Load sun/moon data
+        // Load sun/moon data (moon data now included in sunData, but handle legacy moonData for backwards compat)
         if (cachedData.sunData) sunData = cachedData.sunData;
-        if (cachedData.moonData) moonData = cachedData.moonData;
+        if (cachedData.moonData) {
+            // Merge legacy moonData into sunData for backwards compatibility
+            for (const dateStr of Object.keys(cachedData.moonData)) {
+                if (sunData[dateStr]) {
+                    Object.assign(sunData[dateStr], cachedData.moonData[dateStr]);
+                }
+            }
+        }
         
         // Load photos
         allPhotos = cachedData.photos;
@@ -2480,6 +2487,14 @@ function calculateMoonPhase(dateStr) {
     return phase < 0 ? phase + 1 : phase;
 }
 
+// Calculate moon illumination percentage from phase
+function getMoonIllumination(phase) {
+    // Convert phase (0-1) to illumination (0-100%)
+    // 0 = new moon (0%), 0.5 = full moon (100%)
+    const illum = (1 - Math.cos(phase * 2 * Math.PI)) / 2 * 100;
+    return Math.round(illum);
+}
+
 function getMoonPhaseName(phase) {
     if (phase < 0.0625) return 'New Moon';
     if (phase < 0.1875) return 'Waxing Crescent';
@@ -2502,6 +2517,314 @@ function getMoonSymbol(phase) {
     if (phase < 0.8125) return '🌗';
     if (phase < 0.9375) return '🌘';
     return '🌑';
+}
+
+// Calculate moonrise and moonset times astronomically
+function calculateMoonTimes(dateStr, lat, lng) {
+    const RAD = Math.PI / 180;
+    const DEG = 180 / Math.PI;
+    
+    // Parse date
+    const date = new Date(dateStr + 'T00:00:00');
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    
+    // Julian Day Number
+    const a = Math.floor((14 - month) / 12);
+    const y = year + 4800 - a;
+    const m = month + 12 * a - 3;
+    const JD = day + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) - 32045;
+    
+    // Days since J2000.0
+    const d = JD - 2451545.0;
+    
+    // Moon's orbital elements
+    const N = (125.1228 - 0.0529538083 * d) % 360; // Long. of ascending node
+    const i = 5.1454; // Inclination
+    const w = (318.0634 + 0.1643573223 * d) % 360; // Arg. of perigee
+    const a_moon = 60.2666; // Mean distance (Earth radii)
+    const e = 0.054900; // Eccentricity
+    const M = (115.3654 + 13.0649929509 * d) % 360; // Mean anomaly
+    
+    // Sun's position (needed for perturbations)
+    const Ms = (356.0470 + 0.9856002585 * d) % 360; // Sun mean anomaly
+    const Ls = (280.4665 + 0.9856474 * d) % 360; // Sun mean longitude
+    const Lm = (218.3165 + 13.1763966 * d) % 360; // Moon mean longitude
+    const D = Lm - Ls; // Moon's mean elongation
+    const F = Lm - N; // Moon's argument of latitude
+    
+    // Eccentric anomaly (iterative)
+    let E = M + (e * DEG) * Math.sin(M * RAD) * (1 + e * Math.cos(M * RAD));
+    for (let j = 0; j < 3; j++) {
+        E = E - (E - (e * DEG) * Math.sin(E * RAD) - M) / (1 - e * Math.cos(E * RAD));
+    }
+    
+    // Moon's position in orbital plane
+    const xv = a_moon * (Math.cos(E * RAD) - e);
+    const yv = a_moon * Math.sqrt(1 - e * e) * Math.sin(E * RAD);
+    const v = Math.atan2(yv, xv) * DEG; // True anomaly
+    const r = Math.sqrt(xv * xv + yv * yv); // Distance
+    
+    // Moon's position in ecliptic coordinates
+    let xeclip = r * (Math.cos(N * RAD) * Math.cos((v + w) * RAD) - Math.sin(N * RAD) * Math.sin((v + w) * RAD) * Math.cos(i * RAD));
+    let yeclip = r * (Math.sin(N * RAD) * Math.cos((v + w) * RAD) + Math.cos(N * RAD) * Math.sin((v + w) * RAD) * Math.cos(i * RAD));
+    let zeclip = r * Math.sin((v + w) * RAD) * Math.sin(i * RAD);
+    
+    // Apply perturbations
+    const lonecl = Math.atan2(yeclip, xeclip) * DEG;
+    const latecl = Math.atan2(zeclip, Math.sqrt(xeclip * xeclip + yeclip * yeclip)) * DEG;
+    
+    // Perturbation corrections
+    let dlon = -1.274 * Math.sin((M - 2 * D) * RAD) // Evection
+             + 0.658 * Math.sin(2 * D * RAD) // Variation
+             - 0.186 * Math.sin(Ms * RAD) // Yearly equation
+             - 0.059 * Math.sin((2 * M - 2 * D) * RAD)
+             - 0.057 * Math.sin((M - 2 * D + Ms) * RAD)
+             + 0.053 * Math.sin((M + 2 * D) * RAD)
+             + 0.046 * Math.sin((2 * D - Ms) * RAD)
+             + 0.041 * Math.sin((M - Ms) * RAD)
+             - 0.035 * Math.sin(D * RAD) // Parallactic equation
+             - 0.031 * Math.sin((M + Ms) * RAD)
+             - 0.015 * Math.sin((2 * F - 2 * D) * RAD)
+             + 0.011 * Math.sin((M - 4 * D) * RAD);
+    
+    let dlat = -0.173 * Math.sin((F - 2 * D) * RAD)
+             - 0.055 * Math.sin((M - F - 2 * D) * RAD)
+             - 0.046 * Math.sin((M + F - 2 * D) * RAD)
+             + 0.033 * Math.sin((F + 2 * D) * RAD)
+             + 0.017 * Math.sin((2 * M + F) * RAD);
+    
+    const moonLon = lonecl + dlon;
+    const moonLat = latecl + dlat;
+    
+    // Convert to equatorial coordinates
+    const obliq = 23.4393 - 0.0000004 * d; // Obliquity of ecliptic
+    
+    const xe = Math.cos(moonLon * RAD) * Math.cos(moonLat * RAD);
+    const ye = Math.cos(obliq * RAD) * Math.sin(moonLon * RAD) * Math.cos(moonLat * RAD) - Math.sin(obliq * RAD) * Math.sin(moonLat * RAD);
+    const ze = Math.sin(obliq * RAD) * Math.sin(moonLon * RAD) * Math.cos(moonLat * RAD) + Math.cos(obliq * RAD) * Math.sin(moonLat * RAD);
+    
+    const RA = Math.atan2(ye, xe) * DEG; // Right Ascension
+    const Dec = Math.asin(ze) * DEG; // Declination
+    
+    // Calculate rise/set times
+    // Moon's apparent angular radius is ~0.26°, refraction ~0.57°
+    const h0 = 0.125; // Moon's altitude at rise/set (degrees)
+    
+    // Sidereal time at midnight
+    const GMST0 = (Ls + 180) % 360;
+    
+    // Hour angle at rise/set
+    const cosH = (Math.sin(h0 * RAD) - Math.sin(lat * RAD) * Math.sin(Dec * RAD)) / (Math.cos(lat * RAD) * Math.cos(Dec * RAD));
+    
+    let moonrise = null;
+    let moonset = null;
+    
+    if (cosH >= -1 && cosH <= 1) {
+        const H = Math.acos(cosH) * DEG;
+        
+        // Local sidereal time at rise/set
+        const LSTrise = (RA - H + 360) % 360;
+        const LSTset = (RA + H + 360) % 360;
+        
+        // Convert LST to UT
+        let UTrise = (LSTrise - GMST0 - lng + 360) % 360 / 15;
+        let UTset = (LSTset - GMST0 - lng + 360) % 360 / 15;
+        
+        // Normalize to 0-24
+        while (UTrise < 0) UTrise += 24;
+        while (UTrise >= 24) UTrise -= 24;
+        while (UTset < 0) UTset += 24;
+        while (UTset >= 24) UTset -= 24;
+        
+        // Apply correction for moon's motion (~50 min delay per day)
+        // Moon moves ~13° per day, so rise/set shifts ~50 min later
+        UTrise += UTrise * 0.0347;
+        UTset += UTset * 0.0347;
+        
+        // Normalize again
+        while (UTrise >= 24) UTrise -= 24;
+        while (UTset >= 24) UTset -= 24;
+        
+        // DST detection for US
+        function isDST(y, m, d) {
+            if (m === 3) {
+                const firstDay = new Date(y, 2, 1).getDay();
+                const secondSunday = 8 + (7 - firstDay) % 7;
+                return d >= secondSunday;
+            }
+            if (m === 11) {
+                const firstDay = new Date(y, 10, 1).getDay();
+                const firstSunday = 1 + (7 - firstDay) % 7;
+                return d < firstSunday;
+            }
+            return m >= 4 && m <= 10;
+        }
+        
+        const tzOffset = isDST(year, month, day) ? -4 : -5;
+        
+        let localRise = UTrise + tzOffset;
+        let localSet = UTset + tzOffset;
+        
+        while (localRise < 0) localRise += 24;
+        while (localRise >= 24) localRise -= 24;
+        while (localSet < 0) localSet += 24;
+        while (localSet >= 24) localSet -= 24;
+        
+        moonrise = Math.round(localRise * 3600 * 1000);
+        moonset = Math.round(localSet * 3600 * 1000);
+    }
+    
+    // Calculate moon phase and illumination
+    const phase = calculateMoonPhase(dateStr);
+    const illumination = getMoonIllumination(phase);
+    
+    // Calculate moon's maximum altitude (apex) for this date
+    // Apex altitude = 90 - |latitude - declination|
+    const apexAltitude = Math.min(90, 90 - Math.abs(lat - Dec));
+    
+    return {
+        moonrise: moonrise,
+        moonset: moonset,
+        phase: phase,
+        illumination: illumination,
+        phaseName: getMoonPhaseName(phase),
+        symbol: getMoonSymbol(phase),
+        apexAltitude: Math.max(0, apexAltitude)
+    };
+}
+
+// Calculate sunrise/sunset times astronomically (no API needed)
+function calculateSunTimes(dateStr, lat, lng) {
+    const date = new Date(dateStr + 'T12:00:00');
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    
+    // Day of year
+    const N1 = Math.floor(275 * month / 9);
+    const N2 = Math.floor((month + 9) / 12);
+    const N3 = (1 + Math.floor((year - 4 * Math.floor(year / 4) + 2) / 3));
+    const N = N1 - (N2 * N3) + day - 30;
+    
+    // Convert longitude to hour value
+    const lngHour = lng / 15;
+    
+    // Sunrise calculation
+    const tRise = N + ((6 - lngHour) / 24);
+    const tSet = N + ((18 - lngHour) / 24);
+    
+    // Sun's mean anomaly
+    const MRise = (0.9856 * tRise) - 3.289;
+    const MSet = (0.9856 * tSet) - 3.289;
+    
+    // Sun's true longitude
+    function calcTrueLong(M) {
+        let L = M + (1.916 * Math.sin(M * Math.PI / 180)) + (0.020 * Math.sin(2 * M * Math.PI / 180)) + 282.634;
+        while (L < 0) L += 360;
+        while (L >= 360) L -= 360;
+        return L;
+    }
+    
+    const LRise = calcTrueLong(MRise);
+    const LSet = calcTrueLong(MSet);
+    
+    // Sun's right ascension
+    function calcRA(L) {
+        let RA = Math.atan(0.91764 * Math.tan(L * Math.PI / 180)) * 180 / Math.PI;
+        const Lquadrant = Math.floor(L / 90) * 90;
+        const RAquadrant = Math.floor(RA / 90) * 90;
+        RA = RA + (Lquadrant - RAquadrant);
+        return RA / 15; // Convert to hours
+    }
+    
+    const RARise = calcRA(LRise);
+    const RASet = calcRA(LSet);
+    
+    // Sun's declination
+    function calcDec(L) {
+        const sinDec = 0.39782 * Math.sin(L * Math.PI / 180);
+        return Math.asin(sinDec) * 180 / Math.PI;
+    }
+    
+    const decRise = calcDec(LRise);
+    const decSet = calcDec(LSet);
+    
+    // Sun's local hour angle
+    const zenith = 90.833; // Official sunrise/sunset (accounts for refraction)
+    
+    function calcHourAngle(dec, forRise) {
+        const latRad = lat * Math.PI / 180;
+        const decRad = dec * Math.PI / 180;
+        const cosH = (Math.cos(zenith * Math.PI / 180) - (Math.sin(latRad) * Math.sin(decRad))) / (Math.cos(latRad) * Math.cos(decRad));
+        
+        if (cosH > 1) return null; // Sun never rises
+        if (cosH < -1) return null; // Sun never sets
+        
+        let H = Math.acos(cosH) * 180 / Math.PI;
+        if (forRise) H = 360 - H;
+        return H / 15; // Convert to hours
+    }
+    
+    const HRise = calcHourAngle(decRise, true);
+    const HSet = calcHourAngle(decSet, false);
+    
+    if (HRise === null || HSet === null) {
+        // Polar day/night - use defaults
+        return { sunrise: 6 * 3600 * 1000, sunset: 18 * 3600 * 1000 };
+    }
+    
+    // Local mean time of rise/set
+    const TRise = HRise + RARise - (0.06571 * tRise) - 6.622;
+    const TSet = HSet + RASet - (0.06571 * tSet) - 6.622;
+    
+    // Adjust to UTC
+    let UTRise = TRise - lngHour;
+    let UTSet = TSet - lngHour;
+    
+    // Normalize to 0-24
+    while (UTRise < 0) UTRise += 24;
+    while (UTRise >= 24) UTRise -= 24;
+    while (UTSet < 0) UTSet += 24;
+    while (UTSet >= 24) UTSet -= 24;
+    
+    // Determine if DST is in effect (US rules: 2nd Sunday March - 1st Sunday November)
+    function isDST(y, m, d) {
+        // March: DST starts 2nd Sunday
+        if (m === 3) {
+            const firstDay = new Date(y, 2, 1).getDay();
+            const secondSunday = 8 + (7 - firstDay) % 7;
+            return d >= secondSunday;
+        }
+        // November: DST ends 1st Sunday
+        if (m === 11) {
+            const firstDay = new Date(y, 10, 1).getDay();
+            const firstSunday = 1 + (7 - firstDay) % 7;
+            return d < firstSunday;
+        }
+        // April-October: DST
+        return m >= 4 && m <= 10;
+    }
+    
+    // Eastern Time: UTC-5 (EST) or UTC-4 (EDT)
+    const tzOffset = isDST(year, month, day) ? -4 : -5;
+    
+    // Convert to local time
+    let localRise = UTRise + tzOffset;
+    let localSet = UTSet + tzOffset;
+    
+    // Normalize
+    while (localRise < 0) localRise += 24;
+    while (localRise >= 24) localRise -= 24;
+    while (localSet < 0) localSet += 24;
+    while (localSet >= 24) localSet -= 24;
+    
+    // Convert to milliseconds from midnight
+    const sunriseMs = Math.round(localRise * 3600 * 1000);
+    const sunsetMs = Math.round(localSet * 3600 * 1000);
+    
+    return { sunrise: sunriseMs, sunset: sunsetMs };
 }
 
 async function updateLocationFromPhotos() {
@@ -2574,46 +2897,32 @@ async function prefetchSunData() {
         }
     }
     
-    // Check if sun data has default/fallback values that should be re-fetched
-    const isDefaultValue = (sun) => {
-        if (!sun) return true;
-        // Old defaults: 7am/6pm, New defaults: 00:01/23:59
-        const oldDefault = sun.sunrise === 25200000 && sun.sunset === 64800000;
-        const newDefault = sun.sunrise === 60000 && sun.sunset === 86340000;
-        return oldDefault || newDefault;
-    };
+    // Check which dates need calculation (missing or incomplete data)
+    const datesToCalc = Array.from(uniqueDates).filter(d => {
+        const existing = sunData[d];
+        // Recalculate if missing or missing moon data
+        return !existing || existing.moonrise === undefined;
+    });
     
-    // Fetch dates not in cache OR with default values - limit to 20 per session to avoid rate limits
-    const datesToFetch = Array.from(uniqueDates).filter(d => !sunData[d] || isDefaultValue(sunData[d])).slice(0, 20);
-    
-    if (datesToFetch.length === 0) {
-        console.log('All sun data already cached');
+    if (datesToCalc.length === 0) {
+        console.log('All sun/moon data already calculated');
         return;
     }
     
-    console.log(`Fetching sun data for ${datesToFetch.length} dates...`);
-    const newSunData = {};
+    console.log(`Calculating sun/moon data for ${datesToCalc.length} dates...`);
     
-    for (const dateStr of datesToFetch) {
-        // Clear any existing default value so getSunData will re-fetch
-        if (sunData[dateStr] && isDefaultValue(sunData[dateStr])) {
-            delete sunData[dateStr];
-        }
-        
-        await getSunData(dateStr);
-        
-        // Track newly fetched data for cache sync (only if not a default value)
-        if (sunData[dateStr] && !isDefaultValue(sunData[dateStr])) {
-            newSunData[dateStr] = sunData[dateStr];
-        }
-        
-        // Small delay to avoid rate limits (200ms between calls)
-        await new Promise(r => setTimeout(r, 200));
+    const newSunData = {};
+    for (const dateStr of datesToCalc) {
+        // Clear existing incomplete data
+        delete sunData[dateStr];
+        // Calculate fresh data
+        getSunData(dateStr);
+        newSunData[dateStr] = sunData[dateStr];
     }
     
-    console.log('Pre-fetched sun data for', datesToFetch.length, 'dates');
+    console.log('Calculated sun/moon data for', datesToCalc.length, 'dates');
     
-    // Sync new sun data to cache
+    // Sync to cache (includes all sun and moon data now)
     if (Object.keys(newSunData).length > 0) {
         await syncSunDataToCache(newSunData);
     }
@@ -2717,35 +3026,195 @@ function getWindDirection(degrees) {
     return dirs[Math.round(degrees / 22.5) % 16];
 }
 
-async function getSunData(dateStr) {
+// Calculate how much moonlight is available during nighttime hours
+// Returns: { moonHours: hours moon is up at night, effectiveMoonlight: moon-hours weighted by illumination, nightMoonPercent: % of night with moon }
+function calculateNighttimeMoonlight(sunset, sunrise, moonrise, moonset, illumination) {
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    
+    // Handle null moonrise/moonset (polar regions or calculation edge cases)
+    if (moonrise === null || moonset === null) {
+        return { moonHours: 0, effectiveMoonlight: 0, nightMoonPercent: 0 };
+    }
+    
+    // Night spans from sunset to next sunrise
+    // If sunrise < sunset, sunrise is next day
+    let nightStart = sunset;
+    let nightEnd = sunrise < sunset ? sunrise + DAY_MS : sunrise;
+    let nightDuration = nightEnd - nightStart;
+    
+    // Build list of moon-up periods during the night
+    // Moon could rise before or after sunset, and set before or after sunrise
+    let moonUpDuring = 0;
+    
+    // Normalize times - consider moon might rise/set multiple "windows"
+    // Simple approach: calculate overlap between [nightStart, nightEnd] and moon-up period
+    
+    // Moon up period for this day
+    let moonStart = moonrise;
+    let moonEnd = moonset;
+    
+    // If moonset < moonrise, moon sets next day
+    if (moonEnd < moonStart) {
+        moonEnd += DAY_MS;
+    }
+    
+    // Check overlap with night period
+    // Night: [nightStart, nightEnd]
+    // Moon: [moonStart, moonEnd]
+    
+    // Also check moon from previous day (moonStart - DAY_MS to moonEnd - DAY_MS)
+    const periods = [
+        { start: moonStart - DAY_MS, end: moonEnd - DAY_MS },
+        { start: moonStart, end: moonEnd },
+        { start: moonStart + DAY_MS, end: moonEnd + DAY_MS }
+    ];
+    
+    for (const period of periods) {
+        const overlapStart = Math.max(nightStart, period.start);
+        const overlapEnd = Math.min(nightEnd, period.end);
+        if (overlapEnd > overlapStart) {
+            moonUpDuring += (overlapEnd - overlapStart);
+        }
+    }
+    
+    // Convert to hours
+    const moonHours = moonUpDuring / (60 * 60 * 1000);
+    const nightHours = nightDuration / (60 * 60 * 1000);
+    
+    // Effective moonlight = moon hours * illumination fraction
+    const effectiveMoonlight = moonHours * (illumination / 100);
+    
+    // Percentage of night with moon up
+    const nightMoonPercent = nightHours > 0 ? Math.round((moonHours / nightHours) * 100) : 0;
+    
+    return {
+        moonHours: Math.round(moonHours * 10) / 10,
+        effectiveMoonlight: Math.round(effectiveMoonlight * 10) / 10,
+        nightMoonPercent: nightMoonPercent,
+        nightHours: Math.round(nightHours * 10) / 10
+    };
+}
+
+// Calculate moon altitude at a given time (ms from midnight)
+// Returns altitude in degrees (0 when below horizon)
+function getMoonAltitudeAtTime(timeMs, moonrise, moonset, apexAltitude) {
+    if (moonrise === null || moonset === null) return 0;
+    
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    let rise = moonrise;
+    let set = moonset;
+    let t = timeMs;
+    
+    // Calculate apex time (midpoint between rise and set)
+    let apexTime;
+    if (set < rise) {
+        // Moon sets next day
+        set += DAY_MS;
+        apexTime = (rise + set) / 2;
+    } else {
+        apexTime = (rise + set) / 2;
+    }
+    
+    // Normalize time to check if moon is up
+    // Try current time, and time + 24h for overnight cases
+    const timesToCheck = [t, t + DAY_MS];
+    
+    for (const checkTime of timesToCheck) {
+        if (checkTime >= rise && checkTime <= set) {
+            // Moon is up - calculate altitude using sinusoidal model
+            const progress = (checkTime - rise) / (set - rise);
+            const altitude = apexAltitude * Math.sin(progress * Math.PI);
+            return Math.max(0, altitude);
+        }
+    }
+    
+    return 0; // Moon is below horizon
+}
+
+// Calculate moonlight intensity for each of the 12 night segments (instantaneous method)
+// Returns array of 12 values (0-100) representing moonlight intensity at each segment midpoint
+// 100 = theoretical maximum (full moon at max possible altitude for this latitude)
+function calculateSegmentMoonlight(sunrise, sunset, moonrise, moonset, moonIllumination, apexAltitude) {
+    const MAX_ALTITUDE = 83; // Maximum possible moon altitude at this latitude
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    
+    // Calculate night duration and segment length
+    let nightStart = sunset;
+    let nightEnd = sunrise < sunset ? sunrise + DAY_MS : sunrise;
+    let nightDuration = nightEnd - nightStart;
+    let segmentLength = nightDuration / 12;
+    
+    const segmentMoonlight = [];
+    
+    for (let i = 0; i < 12; i++) {
+        // Calculate midpoint of this segment
+        let midpoint = nightStart + (i + 0.5) * segmentLength;
+        if (midpoint >= DAY_MS) midpoint -= DAY_MS;
+        
+        // Get moon altitude at midpoint
+        const altitude = getMoonAltitudeAtTime(midpoint, moonrise, moonset, apexAltitude);
+        
+        // Calculate normalized moonlight intensity
+        // moonlight = (illumination / 100) * (sin(altitude) / sin(maxAltitude)) * 100
+        let moonlight = 0;
+        if (altitude > 0) {
+            const altFactor = Math.sin(altitude * Math.PI / 180) / Math.sin(MAX_ALTITUDE * Math.PI / 180);
+            moonlight = (moonIllumination / 100) * altFactor * 100;
+        }
+        
+        segmentMoonlight.push(Math.round(moonlight * 10) / 10);
+    }
+    
+    return segmentMoonlight;
+}
+
+function getSunData(dateStr) {
     if (sunData[dateStr]) return sunData[dateStr];
     
-    try {
-        const url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${CONFIG.fixedLat},${CONFIG.fixedLng}/${dateStr}?unitGroup=us&key=${CONFIG.visualCrossingApiKey}&include=days&elements=datetime,sunrise,sunset,moonphase`;
-        const response = await fetch(url);
-        
-        // Handle rate limit - use calculated values instead
-        if (response.status === 429) {
-            console.warn('Visual Crossing rate limit hit, using default values for', dateStr);
-            sunData[dateStr] = { sunrise: timeToMs('00:01:00'), sunset: timeToMs('23:59:00'), moonphase: calculateMoonPhase(dateStr) };
-            return sunData[dateStr];
-        }
-        
-        const data = await response.json();
-        
-        if (data.days && data.days[0]) {
-            const day = data.days[0];
-            sunData[dateStr] = {
-                sunrise: timeToMs(day.sunrise),
-                sunset: timeToMs(day.sunset),
-                moonphase: day.moonphase || calculateMoonPhase(dateStr)
-            };
-        } else {
-            sunData[dateStr] = { sunrise: timeToMs('00:01:00'), sunset: timeToMs('23:59:00'), moonphase: calculateMoonPhase(dateStr) };
-        }
-    } catch (e) {
-        sunData[dateStr] = { sunrise: timeToMs('00:01:00'), sunset: timeToMs('23:59:00'), moonphase: calculateMoonPhase(dateStr) };
-    }
+    // Calculate sunrise/sunset astronomically (no API needed)
+    const sunTimes = calculateSunTimes(dateStr, CONFIG.fixedLat, CONFIG.fixedLng);
+    
+    // Calculate moon data (moonrise, moonset, phase, illumination)
+    const moonTimes = calculateMoonTimes(dateStr, CONFIG.fixedLat, CONFIG.fixedLng);
+    
+    // Calculate nighttime moonlight totals
+    const moonlight = calculateNighttimeMoonlight(
+        sunTimes.sunset,
+        sunTimes.sunrise,
+        moonTimes.moonrise,
+        moonTimes.moonset,
+        moonTimes.illumination
+    );
+    
+    // Calculate segment moonlight (12 values for each night segment)
+    const segmentMoonlight = calculateSegmentMoonlight(
+        sunTimes.sunrise,
+        sunTimes.sunset,
+        moonTimes.moonrise,
+        moonTimes.moonset,
+        moonTimes.illumination,
+        moonTimes.apexAltitude || 60 // Default apex if not calculated
+    );
+    
+    sunData[dateStr] = {
+        sunrise: sunTimes.sunrise,
+        sunset: sunTimes.sunset,
+        moonrise: moonTimes.moonrise,
+        moonset: moonTimes.moonset,
+        moonphase: moonTimes.phase,
+        moonIllumination: moonTimes.illumination,
+        moonPhaseName: moonTimes.phaseName,
+        moonSymbol: moonTimes.symbol,
+        moonApexAltitude: moonTimes.apexAltitude,
+        // Nighttime moonlight totals
+        nightMoonHours: moonlight.moonHours,
+        nightEffectiveMoonlight: moonlight.effectiveMoonlight,
+        nightMoonPercent: moonlight.nightMoonPercent,
+        nightHours: moonlight.nightHours,
+        // Segment moonlight (12 values, 0-100)
+        segmentMoonlight: segmentMoonlight
+    };
+    
     return sunData[dateStr];
 }
 
@@ -2800,13 +3269,12 @@ async function processPhotosForChart() {
         dashboardPhotos.push(processedPhoto);
     }
     
-    // Sun data already prefetched at login, just ensure any missing dates are fetched
-    const datesToFetch = Array.from(uniqueDates).filter(d => !sunData[d]).slice(0, 20);
-    if (datesToFetch.length > 0) {
-        console.log(`Fetching ${datesToFetch.length} missing sun dates...`);
-        for (const dateStr of datesToFetch) {
-            await getSunData(dateStr);
-            await new Promise(r => setTimeout(r, 200)); // Rate limit delay
+    // Calculate sun data for any missing dates (instant, no API needed)
+    const datesToCalc = Array.from(uniqueDates).filter(d => !sunData[d]);
+    if (datesToCalc.length > 0) {
+        console.log(`Calculating ${datesToCalc.length} missing sun dates...`);
+        for (const dateStr of datesToCalc) {
+            getSunData(dateStr); // Synchronous calculation
         }
     }
     
