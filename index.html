@@ -1167,7 +1167,10 @@ async function viewOnlyLogin() {
             }
             
             if (newPhotos.length > 0) {
-                console.log('viewOnlyLogin: New photos found:', newPhotos.length, 'Total allPhotos:', allPhotos.length);
+                console.log('viewOnlyLogin: New photos found:', newPhotos.length);
+                console.log('New photo IDs:', newPhotos.slice(0, 5).map(p => p.photoId));
+                console.log('Total allPhotos:', allPhotos.length);
+                console.log('First 3 allPhotos IDs:', allPhotos.slice(0, 3).map(p => p.photoId));
                 applyFilters();
                 
                 // Admin syncs to cache, viewer does not
@@ -1947,6 +1950,7 @@ function applyFilters() {
     });
     
     console.log('After filter. filteredPhotos:', filteredPhotos.length, 'currentView:', currentView);
+    console.log('First 3 photo IDs:', filteredPhotos.slice(0, 3).map(p => p.photoId));
     
     currentIndex = 0;
     if (currentView === 'grid') {
@@ -1964,7 +1968,12 @@ function showCurrentPhoto() {
     const container = document.getElementById('photoContainer');
     const complete = document.getElementById('completeMessage');
     
-    if (currentView === 'grid') return;
+    console.log('container:', container, 'complete:', complete);
+    
+    if (currentView === 'grid') {
+        console.log('Exiting - currentView is grid');
+        return;
+    }
     
     if (filteredPhotos.length === 0) {
         container.style.display = 'none';
@@ -1976,6 +1985,7 @@ function showCurrentPhoto() {
     complete.style.display = 'none';
     
     const photo = filteredPhotos[currentIndex];
+    console.log('Showing photo:', photo.photoId, 'URL:', photo.photoUrl?.substring(0, 50));
     const photoDate = getPhotoDate(photo);
     
     // Gallery names
