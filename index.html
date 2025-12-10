@@ -366,6 +366,13 @@
             padding: 12px 15px;
             background: var(--bg-card);
             display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .zoom-tag-row {
+            display: flex;
             flex-wrap: wrap;
             gap: 8px;
             justify-content: center;
@@ -3116,13 +3123,26 @@ function renderZoomTagButtons() {
     };
     
     // Build buttons from all available tags in tagsLookup
-    Object.keys(tagsLookup).forEach(tagName => {
+    const tagNames = Object.keys(tagsLookup);
+    const midpoint = Math.ceil(tagNames.length / 2);
+    
+    // First row of tags
+    html += '<div class="zoom-tag-row">';
+    tagNames.slice(0, midpoint).forEach(tagName => {
         const icon = tagIcons[tagName] || '🏷️';
         html += `<button class="zoom-tag-btn" data-tag="${tagName}" onclick="zoomTagPhoto('${tagName}')">${icon} ${tagName}</button>`;
     });
+    html += '</div>';
     
+    // Second row of tags
+    html += '<div class="zoom-tag-row">';
+    tagNames.slice(midpoint).forEach(tagName => {
+        const icon = tagIcons[tagName] || '🏷️';
+        html += `<button class="zoom-tag-btn" data-tag="${tagName}" onclick="zoomTagPhoto('${tagName}')">${icon} ${tagName}</button>`;
+    });
     // None button to clear tags
     html += `<button class="zoom-tag-btn zoom-none-btn" data-tag="__none__" onclick="zoomClearTag()">🚫 None</button>`;
+    html += '</div>';
     
     // Action row with Delete (right-aligned)
     html += '<div class="zoom-action-row">';
