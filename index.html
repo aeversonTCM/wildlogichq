@@ -462,6 +462,18 @@
                 <p class="text-muted" id="loginSubtitle">Sign in with your Tactacam account</p>
             </div>
             
+            <!-- Admin Quick Enter (shown only for admin) -->
+            <div id="adminQuickSection" style="display: none;">
+                <div class="d-grid gap-2 mb-3">
+                    <button class="btn btn-success btn-lg" onclick="adminQuickLogin()">
+                        <i class="bi bi-box-arrow-in-right me-2"></i>Enter Trail Cam HQ
+                    </button>
+                </div>
+                <div class="text-center mb-3">
+                    <small class="text-muted">Full admin access</small>
+                </div>
+            </div>
+            
             <!-- View Only Button (shown for viewers) -->
             <div id="viewOnlySection" style="display: none;">
                 <div class="d-grid gap-2 mb-3">
@@ -470,7 +482,7 @@
                     </button>
                 </div>
                 <div class="text-center mb-3">
-                    <small class="text-muted">Browse photos instantly without signing in</small>
+                    <small class="text-muted">Browse photos instantly</small>
                 </div>
                 <hr>
                 <div class="text-center mb-2">
@@ -478,7 +490,7 @@
                 </div>
             </div>
             
-            <!-- Login Form (shown for all) -->
+            <!-- Login Form (shown for viewers only) -->
             <div id="adminLoginSection">
                 <div class="mb-3">
                     <label class="form-label">Email</label>
@@ -914,30 +926,15 @@ async function checkHqAccess() {
         const response = await fetch(`${CONFIG.googleSheetsUrl}?action=verifyAccess&code=${encodeURIComponent(code)}`);
         const result = await response.json();
         
+        hideLoading();
+        
         if (result.access === 'admin' || result.access === 'viewer') {
             accessLevel = result.access;
             sessionStorage.setItem('hqAccess', accessLevel);
-            
-            // For admin, pre-fill Tactacam credentials
-            if (accessLevel === 'admin') {
-                try {
-                    const credsResponse = await fetch(`${CONFIG.googleSheetsUrl}?action=getViewerCredentials&session=viewer`);
-                    const creds = await credsResponse.json();
-                    if (creds.email && creds.password) {
-                        document.getElementById('email').value = creds.email;
-                        document.getElementById('password').value = creds.password;
-                    }
-                } catch (e) {
-                    console.log('Could not pre-fill credentials');
-                }
-            }
-            
-            hideLoading();
             document.getElementById('hqGate').style.display = 'none';
             document.getElementById('loginSection').style.display = 'flex';
             applyAccessLevel();
         } else {
-            hideLoading();
             document.getElementById('hqError').style.display = 'block';
             document.getElementById('hqPassword').value = '';
         }
@@ -946,6 +943,98 @@ async function checkHqAccess() {
         console.error('Access check error:', error);
         document.getElementById('hqError').textContent = 'Connection error. Try again.';
         document.getElementById('hqError').style.display = 'block';
+    }
+}
+
+async function adminQuickLogin() {
+    showLoading('Connecting...');
+    document.getElementById('loginError').style.display = 'none';
+    
+    try {
+        // Get stored credentials from Apps Script
+        const response = await fetch(`${CONFIG.googleSheetsUrl}?action=getViewerCredentials&session=viewer`);
+        const creds = await response.json();
+        
+        if (creds.error || !creds.email || !creds.password) {
+            throw new Error('Could not retrieve credentials');
+        }
+        
+        // Login to Tactacam
+        showLoading('Signing in...');
+        const authResponse = await fetch(CONFIG.cognitoUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-amz-json-1.1', 'X-Amz-Target': 'AWSCognitoIdentityProviderService.InitiateAuth' },
+            body: JSON.stringify({
+                AuthFlow: 'USER_PASSWORD_AUTH',
+                ClientId: CONFIG.cognitoClientId,
+                AuthParameters: { USERNAME: creds.email, PASSWORD: creds.password }
+            })
+        });
+        
+        const authData = await authResponse.json();
+        
+        if (!authData.AuthenticationResult) {
+            throw new Error(authData.message || 'Login failed');
+        }
+        
+        accessToken = authData.AuthenticationResult.AccessToken;
+        localStorage.setItem('trailcam_token', accessToken);
+        localStorage.setItem('trailcam_email', creds.email);
+        
+        // Initialize app (loads from cache)
+        await initializeApp();
+        
+        // Check for new photos and sync to cache
+        showSyncStatus('Checking for new photos...', 'syncing');
+        
+        try {
+            const existingIds = new Set(allPhotos.map(p => p.photoId));
+            let newPhotos = [];
+            let page = 0;
+            
+            while (page < 10) {
+                const resp = await fetch(
+                    `${CONFIG.apiBaseUrl}/photos?size=100&page=${page}&includeWeatherData=true`,
+                    { headers: { 'Authorization': `Bearer ${accessToken}` } }
+                );
+                
+                if (!resp.ok) break;
+                const photoData = await resp.json();
+                if (!photoData.response?.photos?.length) break;
+                
+                let foundExisting = false;
+                for (const photo of photoData.response.photos) {
+                    if (existingIds.has(photo.photoId)) { foundExisting = true; continue; }
+                    if (!photo.photoDateUtc && !photo.photoDate) continue;
+                    if (photo.cameraName) cameras.add(photo.cameraName);
+                    allPhotos.unshift(photo);
+                    newPhotos.push(photo);
+                }
+                if (foundExisting) break;
+                page++;
+            }
+            
+            if (newPhotos.length > 0) {
+                applyFilters();
+                showSyncStatus(`Syncing ${newPhotos.length} new photos...`, 'syncing');
+                await syncPhotosToCache(newPhotos);
+                showSyncStatus(`${newPhotos.length} new photos synced!`, 'complete');
+                setTimeout(() => hideSyncStatus(), 3000);
+            } else {
+                showSyncStatus('All photos up to date', 'complete');
+                setTimeout(() => hideSyncStatus(), 2000);
+            }
+        } catch (refreshError) {
+            console.error('Refresh error:', refreshError);
+            showSyncStatus('Using cached photos', 'complete');
+            setTimeout(() => hideSyncStatus(), 2000);
+        }
+        
+    } catch (error) {
+        hideLoading();
+        console.error('Admin login error:', error);
+        document.getElementById('loginError').textContent = 'Connection failed. Please try again.';
+        document.getElementById('loginError').style.display = 'block';
     }
 }
 
@@ -968,10 +1057,20 @@ function applyAccessLevel() {
         el.style.display = accessLevel === 'admin' ? '' : 'none';
     });
     
-    // Show login options - both admin and viewer see Quick View option
-    document.getElementById('viewOnlySection').style.display = 'block';
-    document.getElementById('adminLoginSection').style.display = 'block';
-    document.getElementById('loginSubtitle').textContent = 'Choose how to access';
+    // Show appropriate login options based on access level
+    if (accessLevel === 'admin') {
+        // Admin: just show the quick enter button
+        document.getElementById('adminQuickSection').style.display = 'block';
+        document.getElementById('viewOnlySection').style.display = 'none';
+        document.getElementById('adminLoginSection').style.display = 'none';
+        document.getElementById('loginSubtitle').textContent = 'Welcome back';
+    } else {
+        // Viewer: show quick view + manual login form
+        document.getElementById('adminQuickSection').style.display = 'none';
+        document.getElementById('viewOnlySection').style.display = 'block';
+        document.getElementById('adminLoginSection').style.display = 'block';
+        document.getElementById('loginSubtitle').textContent = 'Choose how to access';
+    }
     
     console.log('Access level:', accessLevel);
 }
