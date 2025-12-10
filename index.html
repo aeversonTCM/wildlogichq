@@ -2795,9 +2795,11 @@ function createMainChart() {
             selected: 1,
             buttons: [{ type: 'week', count: 1, text: '1w' }, { type: 'month', count: 1, text: '1m' }, { type: 'month', count: 3, text: '3m' }, { type: 'all', text: 'All' }],
             inputEnabled: false,
-            floating: true,
-            align: 'right',
             verticalAlign: 'bottom',
+            buttonPosition: {
+                align: 'right',
+                x: -10
+            },
             y: 5,
             buttonTheme: { fill: '#3e3e40', stroke: '#606063', style: { color: '#E0E0E3' }, states: { hover: { fill: '#4e4e50' }, select: { fill: '#1C86EE', style: { color: 'white' } } } }
         },
