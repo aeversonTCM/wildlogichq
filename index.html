@@ -439,11 +439,8 @@
             <button class="btn btn-outline-info btn-sm" id="cloudSyncBtn" onclick="syncToCloudBackup()" style="display: none;" title="Sync to Cloud Backup">
                 <i class="bi bi-cloud-upload"></i>
             </button>
-            <button class="btn btn-outline-warning btn-sm" id="clearCacheBtn" onclick="confirmClearCache()" style="display: none;" title="Clear Local Cache">
-                <i class="bi bi-trash"></i>
-            </button>
-            <button class="btn btn-outline-danger btn-sm" id="fullRefreshBtn" onclick="fullRefresh()" style="display: none;" title="Full Refresh - Reload Everything">
-                <i class="bi bi-arrow-clockwise"></i>
+            <button class="btn btn-outline-danger btn-sm" id="fullRefreshBtn" onclick="fullRefresh()" style="display: none;" title="Full Refresh - Clear ALL Cache & Reload from Reveal">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
             </button>
             <span class="text-muted" id="userDisplay" style="display: none;">
                 <i class="bi bi-person-circle me-1"></i><span id="userName"></span>
@@ -1853,21 +1850,27 @@ async function fullRefresh() {
 
 // Update cache status indicator
 function updateCacheStatus() {
+    console.log('updateCacheStatus called, accessLevel:', accessLevel);
+    
     const statusEl = document.getElementById('cacheStatus');
     const statusText = document.getElementById('cacheStatusText');
     const cloudBtn = document.getElementById('cloudSyncBtn');
-    const clearBtn = document.getElementById('clearCacheBtn');
     const fullRefreshBtn = document.getElementById('fullRefreshBtn');
     
-    if (!statusEl) return;
+    if (!statusEl) {
+        console.log('cacheStatus element not found');
+        return;
+    }
     
     const localCache = loadFromLocalCache();
     const hasLocal = localCache && localCache.photos && localCache.photos.length > 0;
     const hasCloud = isCacheEnabled();
     
+    console.log('Cache status - hasLocal:', hasLocal, 'hasCloud:', hasCloud);
+    
     if (accessLevel === 'admin') {
+        console.log('Showing admin cache buttons');
         statusEl.style.display = 'inline';
-        clearBtn.style.display = 'inline-block';
         fullRefreshBtn.style.display = 'inline-block';
         
         if (hasLocal && hasCloud) {
@@ -1887,6 +1890,8 @@ function updateCacheStatus() {
             statusText.className = 'text-danger';
             cloudBtn.style.display = 'none';
         }
+    } else {
+        console.log('Not admin, hiding cache buttons');
     }
 }
 
