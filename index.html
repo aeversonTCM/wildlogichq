@@ -1428,98 +1428,146 @@ function isCacheEnabled() {
 }
 
 // ============== LOCAL STORAGE CACHE (PRIMARY - INSTANT) ==============
+// Using IndexedDB for larger storage capacity (localStorage is limited to ~5MB)
 const LOCAL_CACHE_KEY = 'trailcam_cache_v2';
 const LOCAL_CACHE_VERSION = 2;
+const DB_NAME = 'TrailCamDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'cache';
 
-function saveToLocalCache(data) {
+let dbInstance = null;
+
+// Initialize IndexedDB
+function initDB() {
+    return new Promise((resolve, reject) => {
+        if (dbInstance) {
+            resolve(dbInstance);
+            return;
+        }
+        
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        
+        request.onerror = () => {
+            console.error('IndexedDB error:', request.error);
+            reject(request.error);
+        };
+        
+        request.onsuccess = () => {
+            dbInstance = request.result;
+            console.log('IndexedDB initialized');
+            resolve(dbInstance);
+        };
+        
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                console.log('IndexedDB store created');
+            }
+        };
+    });
+}
+
+async function saveToLocalCache(data) {
     try {
+        const db = await initDB();
         const cacheData = {
+            id: LOCAL_CACHE_KEY,
             version: LOCAL_CACHE_VERSION,
             timestamp: Date.now(),
             ...data
         };
-        const jsonStr = JSON.stringify(cacheData);
-        console.log('Saving to local cache, size:', Math.round(jsonStr.length / 1024), 'KB');
-        localStorage.setItem(LOCAL_CACHE_KEY, jsonStr);
         
-        // Verify it was saved
-        const verify = localStorage.getItem(LOCAL_CACHE_KEY);
-        if (verify) {
-            console.log('✅ Local cache saved successfully:', {
-                photos: data.photos?.length || 0,
-                tags: data.tags?.length || 0,
-                galleries: data.galleries?.length || 0,
-                sunDataDates: Object.keys(data.sunData || {}).length,
-                sizeKB: Math.round(verify.length / 1024)
-            });
-        } else {
-            console.error('❌ Local cache save FAILED - not found after save');
-        }
-        return true;
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.put(cacheData);
+            
+            request.onsuccess = () => {
+                console.log('✅ Local cache saved successfully (IndexedDB):', {
+                    photos: data.photos?.length || 0,
+                    tags: data.tags?.length || 0,
+                    galleries: data.galleries?.length || 0,
+                    sunDataDates: Object.keys(data.sunData || {}).length
+                });
+                resolve(true);
+            };
+            
+            request.onerror = () => {
+                console.error('IndexedDB save error:', request.error);
+                reject(request.error);
+            };
+        });
     } catch (e) {
         console.error('Local cache save error:', e);
-        // If quota exceeded, try clearing old data
-        if (e.name === 'QuotaExceededError') {
-            console.warn('localStorage quota exceeded, clearing old cache');
-            localStorage.removeItem(LOCAL_CACHE_KEY);
-        }
         return false;
     }
 }
 
-function loadFromLocalCache() {
-    console.log('Attempting to load from local cache, key:', LOCAL_CACHE_KEY);
+async function loadFromLocalCache() {
+    console.log('Attempting to load from local cache (IndexedDB)');
     try {
-        const cached = localStorage.getItem(LOCAL_CACHE_KEY);
-        console.log('localStorage.getItem result:', cached ? `${Math.round(cached.length/1024)}KB` : 'null');
+        const db = await initDB();
         
-        if (!cached) {
-            console.log('❌ No local cache found');
-            return null;
-        }
-        
-        const data = JSON.parse(cached);
-        
-        // Check version compatibility
-        if (data.version !== LOCAL_CACHE_VERSION) {
-            console.log('❌ Local cache version mismatch:', data.version, 'vs expected', LOCAL_CACHE_VERSION);
-            localStorage.removeItem(LOCAL_CACHE_KEY);
-            return null;
-        }
-        
-        // Check if cache is stale (older than 7 days)
-        const cacheAge = Date.now() - (data.timestamp || 0);
-        const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
-        if (cacheAge > maxAge) {
-            console.log('Local cache is stale, will refresh from cloud');
-            // Don't clear - still use it but mark for refresh
-            data._stale = true;
-        }
-        
-        console.log('✅ Loaded from local cache:', {
-            photos: data.photos?.length || 0,
-            tags: data.tags?.length || 0,
-            galleries: data.galleries?.length || 0,
-            sunDataDates: Object.keys(data.sunData || {}).length,
-            ageHours: Math.round(cacheAge / (60 * 60 * 1000))
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction([STORE_NAME], 'readonly');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.get(LOCAL_CACHE_KEY);
+            
+            request.onsuccess = () => {
+                const data = request.result;
+                
+                if (!data) {
+                    console.log('❌ No local cache found in IndexedDB');
+                    resolve(null);
+                    return;
+                }
+                
+                // Check version compatibility
+                if (data.version !== LOCAL_CACHE_VERSION) {
+                    console.log('❌ Local cache version mismatch:', data.version, 'vs expected', LOCAL_CACHE_VERSION);
+                    resolve(null);
+                    return;
+                }
+                
+                // Check if cache is stale (older than 7 days)
+                const cacheAge = Date.now() - (data.timestamp || 0);
+                const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
+                if (cacheAge > maxAge) {
+                    console.log('Local cache is stale, will refresh from cloud');
+                    data._stale = true;
+                }
+                
+                console.log('✅ Loaded from local cache (IndexedDB):', {
+                    photos: data.photos?.length || 0,
+                    tags: data.tags?.length || 0,
+                    galleries: data.galleries?.length || 0,
+                    sunDataDates: Object.keys(data.sunData || {}).length,
+                    ageHours: Math.round(cacheAge / (60 * 60 * 1000))
+                });
+                
+                resolve(data);
+            };
+            
+            request.onerror = () => {
+                console.error('IndexedDB load error:', request.error);
+                resolve(null);
+            };
         });
-        
-        return data;
     } catch (e) {
         console.error('Local cache load error:', e);
         return null;
     }
 }
 
-function updateLocalCacheSunData(newSunData) {
+async function updateLocalCacheSunData(newSunData) {
     try {
-        const cached = localStorage.getItem(LOCAL_CACHE_KEY);
-        if (!cached) return false;
+        const existing = await loadFromLocalCache();
+        if (!existing) return false;
         
-        const data = JSON.parse(cached);
-        data.sunData = { ...data.sunData, ...newSunData };
-        data.timestamp = Date.now();
-        localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(data));
+        existing.sunData = { ...existing.sunData, ...newSunData };
+        existing.timestamp = Date.now();
+        await saveToLocalCache(existing);
         return true;
     } catch (e) {
         console.error('Local cache update error:', e);
@@ -1527,9 +1575,30 @@ function updateLocalCacheSunData(newSunData) {
     }
 }
 
-function clearLocalCache() {
-    localStorage.removeItem(LOCAL_CACHE_KEY);
-    console.log('Local cache cleared');
+async function clearLocalCache() {
+    try {
+        const db = await initDB();
+        return new Promise((resolve) => {
+            const transaction = db.transaction([STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(STORE_NAME);
+            const request = store.delete(LOCAL_CACHE_KEY);
+            
+            request.onsuccess = () => {
+                console.log('Local cache cleared (IndexedDB)');
+                resolve(true);
+            };
+            
+            request.onerror = () => {
+                console.error('IndexedDB clear error:', request.error);
+                resolve(false);
+            };
+        });
+    } catch (e) {
+        console.error('Clear cache error:', e);
+        // Also try clearing old localStorage just in case
+        localStorage.removeItem('trailcam_cache_v2');
+        return false;
+    }
 }
 
 // ============== GOOGLE SHEETS CACHE (BACKUP - CLOUD) ==============
@@ -1561,7 +1630,7 @@ async function loadFromCache() {
     console.log('=== loadFromCache starting ===');
     
     // Try local cache first (instant)
-    const localData = loadFromLocalCache();
+    const localData = await loadFromLocalCache();
     
     if (localData && localData.photos && localData.photos.length > 0) {
         // Local cache hit!
@@ -1572,7 +1641,7 @@ async function loadFromCache() {
             setTimeout(async () => {
                 const cloudData = await loadFromCloudCache();
                 if (cloudData && cloudData.photos) {
-                    saveToLocalCache(cloudData);
+                    await saveToLocalCache(cloudData);
                     console.log('Background cloud sync complete');
                 }
             }, 5000);
@@ -1593,7 +1662,7 @@ async function loadFromCache() {
     if (cloudData && cloudData.photos && cloudData.photos.length > 0) {
         // Save to local cache for next time
         console.log('Saving cloud data to local cache for next time');
-        saveToLocalCache(cloudData);
+        await saveToLocalCache(cloudData);
     }
     
     return cloudData;
@@ -1616,14 +1685,14 @@ async function postToCache(data) {
 }
 
 // Save current state to local cache
-function saveCurrentStateToLocalCache() {
+async function saveCurrentStateToLocalCache() {
     const cacheData = {
         photos: allPhotos,
         tags: Object.keys(tagsLookup).map(name => ({ name, tagId: tagsLookup[name] })),
         galleries: galleries,
         sunData: sunData
     };
-    saveToLocalCache(cacheData);
+    await saveToLocalCache(cacheData);
 }
 
 async function syncPhotosToCache(photos) {
@@ -1631,7 +1700,7 @@ async function syncPhotosToCache(photos) {
     if (accessLevel !== 'admin') { console.log('Viewer - skipping cache write'); return; }
     
     // Always update local cache
-    saveCurrentStateToLocalCache();
+    await saveCurrentStateToLocalCache();
     
     // Sync to cloud if enabled
     if (isCacheEnabled()) {
@@ -1647,7 +1716,7 @@ async function syncTagsToCache(tags) {
     if (accessLevel !== 'admin') return;
     
     // Always update local cache
-    saveCurrentStateToLocalCache();
+    await saveCurrentStateToLocalCache();
     
     // Sync to cloud if enabled
     if (isCacheEnabled()) {
@@ -1661,7 +1730,7 @@ async function syncGalleriesToCache(galleriesData) {
     if (accessLevel !== 'admin') return;
     
     // Always update local cache
-    saveCurrentStateToLocalCache();
+    await saveCurrentStateToLocalCache();
     
     // Sync to cloud if enabled
     if (isCacheEnabled()) {
@@ -1674,7 +1743,7 @@ async function updatePhotoCacheAfterTagChange(photoId, tagIds) {
     if (accessLevel !== 'admin') return;
     
     // Always update local cache
-    saveCurrentStateToLocalCache();
+    await saveCurrentStateToLocalCache();
     
     // Sync to cloud if enabled
     if (isCacheEnabled()) {
@@ -1686,7 +1755,7 @@ async function updatePhotoCacheAfterGalleryChange(photoId, photoGroupIds) {
     if (accessLevel !== 'admin') return;
     
     // Always update local cache
-    saveCurrentStateToLocalCache();
+    await saveCurrentStateToLocalCache();
     
     // Sync to cloud if enabled
     if (isCacheEnabled()) {
@@ -1698,7 +1767,7 @@ async function deletePhotoFromCache(photoId) {
     if (accessLevel !== 'admin') return;
     
     // Always update local cache
-    saveCurrentStateToLocalCache();
+    await saveCurrentStateToLocalCache();
     
     // Sync to cloud if enabled
     if (isCacheEnabled()) {
@@ -1711,7 +1780,7 @@ async function deletePhotosFromCache(photoIds) {
     if (accessLevel !== 'admin') return;
     
     // Always update local cache
-    saveCurrentStateToLocalCache();
+    await saveCurrentStateToLocalCache();
     
     // Sync to cloud if enabled
     if (isCacheEnabled()) {
@@ -1779,13 +1848,13 @@ async function confirmClearCache() {
         return;
     }
     
-    clearLocalCache();
+    await clearLocalCache();
     
     if (isCacheEnabled()) {
         showLoading('Reloading from cloud...');
         const cloudData = await loadFromCloudCache();
         if (cloudData && cloudData.photos) {
-            saveToLocalCache(cloudData);
+            await saveToLocalCache(cloudData);
             alert('Reloaded from cloud backup. Refreshing page...');
             location.reload();
         } else {
@@ -1812,7 +1881,7 @@ async function fullRefresh() {
     try {
         // 1. Clear local cache
         showLoading('Clearing local cache...');
-        clearLocalCache();
+        await clearLocalCache();
         
         // 2. Clear cloud cache (if enabled)
         if (isCacheEnabled()) {
@@ -1843,7 +1912,7 @@ async function fullRefresh() {
         
         // 6. Save to local cache
         showLoading('Saving to local cache...');
-        saveCurrentStateToLocalCache();
+        await saveCurrentStateToLocalCache();
         
         // 7. Save to cloud cache
         if (isCacheEnabled()) {
@@ -1860,7 +1929,7 @@ async function fullRefresh() {
         await prefetchForecast();
         
         hideLoading();
-        updateCacheStatus();
+        await updateCacheStatus();
         
         alert('✅ Full refresh complete!\n\n• ' + allPhotos.length + ' photos loaded\n• ' + Object.keys(sunData).length + ' dates calculated\n\nRefreshing page...');
         location.reload();
@@ -1873,7 +1942,7 @@ async function fullRefresh() {
 }
 
 // Update cache status indicator
-function updateCacheStatus() {
+async function updateCacheStatus() {
     console.log('updateCacheStatus called, accessLevel:', accessLevel);
     
     const statusEl = document.getElementById('cacheStatus');
@@ -1886,7 +1955,7 @@ function updateCacheStatus() {
         return;
     }
     
-    const localCache = loadFromLocalCache();
+    const localCache = await loadFromLocalCache();
     const hasLocal = localCache && localCache.photos && localCache.photos.length > 0;
     const hasCloud = isCacheEnabled();
     
@@ -1995,7 +2064,7 @@ async function initializeApp() {
         
         // Save to local cache for next time (if admin)
         if (accessLevel === 'admin') {
-            saveCurrentStateToLocalCache();
+            await saveCurrentStateToLocalCache();
             console.log('Saved initial data to local cache');
         }
     }
@@ -2007,7 +2076,7 @@ async function initializeApp() {
     hideLoading();
     
     // Update cache status indicator
-    updateCacheStatus();
+    await updateCacheStatus();
     
     // Pre-fetch sun/forecast data, then initialize dashboard
     (async () => {
