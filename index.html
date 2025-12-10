@@ -366,14 +366,47 @@
             margin: 0 6px;
         }
         
-        /* Quick Tag Action Buttons */
-        .zoom-actions {
+        /* Quick Tag Action Buttons - 3 Column Layout */
+        .zoom-actions-wrapper {
+            display: flex;
             padding: 12px 15px;
             background: var(--bg-card);
+        }
+        
+        .zoom-left-spacer {
+            flex: 1;
+        }
+        
+        .zoom-actions {
+            flex: 0 0 auto;
             display: flex;
             flex-direction: column;
             gap: 8px;
             align-items: center;
+        }
+        
+        .zoom-right-section {
+            flex: 1;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+        }
+        
+        .zoom-download-btn {
+            padding: 8px 16px;
+            border: 1px solid var(--accent-blue);
+            border-radius: 20px;
+            background: transparent;
+            color: var(--accent-blue);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        
+        .zoom-download-btn:hover {
+            background: var(--accent-blue);
+            color: #fff;
         }
         
         .zoom-tag-row {
@@ -772,7 +805,7 @@
                             <div class="col-auto">
                                 <div class="btn-group">
                                     <button class="btn btn-outline-success btn-sm" id="viewToggleBtn" onclick="toggleView()">
-                                        <i class="bi bi-grid-3x3-gap-fill me-1"></i>Grid View
+                                        <i class="bi bi-image me-1"></i>Single View
                                     </button>
                                     <button class="btn btn-outline-success btn-sm" onclick="refreshPhotos()">
                                         <i class="bi bi-arrow-clockwise"></i> Refresh
@@ -794,7 +827,7 @@
                 </div>
                 
                 <!-- Single Photo View -->
-                <div id="photoContainer">
+                <div id="photoContainer" style="display: none;">
                     <div class="row">
                         <div class="col-lg-9">
                             <div class="d-flex align-items-center gap-2">
@@ -845,7 +878,7 @@
                 </div>
                 
                 <!-- Grid View -->
-                <div id="gridContainer" style="display: none;">
+                <div id="gridContainer">
                     <div class="row">
                         <div class="col-lg-10">
                             <div class="photo-grid" id="photoGrid"></div>
@@ -1118,7 +1151,13 @@
             </div>
         </div>
         <div class="zoom-info" id="zoomInfo"></div>
-        <div class="zoom-actions" id="zoomActions"></div>
+        <div class="zoom-actions-wrapper">
+            <div class="zoom-left-spacer"></div>
+            <div class="zoom-actions" id="zoomActions"></div>
+            <div class="zoom-right-section">
+                <button class="zoom-download-btn" onclick="zoomDownloadPhoto()"><i class="bi bi-download"></i> Download</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -1435,7 +1474,7 @@ let tagIdToName = {};
 let groupsLookup = {};
 let galleries = [];
 let cameras = new Set();
-let currentView = 'single';
+let currentView = 'grid';
 let gridDisplayCount = 100;
 let selectedPhotos = new Set();
 let cacheEnabled = false; // Set to true once Google Sheets URL is configured
@@ -2659,6 +2698,7 @@ function applyFilters() {
     if (currentView === 'grid') {
         gridDisplayCount = 100;
         renderGrid();
+        updateBulkActionBar();
     } else {
         updateStats();
         showCurrentPhoto();
@@ -3314,6 +3354,27 @@ async function zoomTagPhoto(tagName) {
         
     } catch (err) {
         console.error('Error tagging photo:', err);
+    }
+}
+
+async function zoomDownloadPhoto() {
+    const photo = filteredPhotos[zoomIndex];
+    if (!photo) return;
+    
+    try {
+        const response = await fetch(photo.photoUrl);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const photoDate = getPhotoDate(photo);
+        const dateStr = photoDate ? new Date(photoDate).toISOString().split('T')[0] : 'unknown';
+        a.download = `${photo.cameraName || 'photo'}_${dateStr}.jpg`;
+        a.click();
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        console.error('Error downloading photo:', err);
+        alert('Failed to download photo');
     }
 }
 
