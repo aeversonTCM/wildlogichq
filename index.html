@@ -1221,7 +1221,8 @@ const tagConfig = {
     'human': { color: '#FFD700', symbol: 'square', radius: 4, name: 'Human' },
     'vehicle': { color: '#A9A9A9', symbol: 'diamond', radius: 4, name: 'Vehicle/ATV' },
     'other_tagged': { color: '#90EE90', symbol: 'circle', radius: 3, name: 'Other' },
-    'no_animals': { color: '#696969', symbol: 'circle', radius: 3, name: 'No Animals' }
+    'no_animals': { color: '#696969', symbol: 'circle', radius: 3, name: 'No Animals' },
+    'untagged': { color: '#FFFFFF', symbol: 'circle', radius: 3, name: 'Untagged' }
 };
 
 // Bootstrap modals
@@ -2522,7 +2523,11 @@ async function processPhotosForPrediction() {
         
         const tagNames = (photo.tagIds || []).map(id => tagIdToName[id]).filter(n => n);
         let animalType = 'other';
-        if (tagNames.includes('Buck')) animalType = 'buck';
+        
+        // Check if photo has no tags at all
+        if (!photo.tagIds || photo.tagIds.length === 0) {
+            animalType = 'untagged';
+        } else if (tagNames.includes('Buck')) animalType = 'buck';
         else if (tagNames.includes('Doe')) animalType = 'doe';
         else if (tagNames.includes('Turkey')) animalType = 'turkey';
         else if (tagNames.includes('Bear')) animalType = 'bear';
@@ -2654,7 +2659,11 @@ async function processPhotosForChart() {
         
         const tagNames = (photo.tagIds || []).map(id => tagIdToName[id]).filter(n => n);
         let animalType = 'other';
-        if (tagNames.includes('Buck')) animalType = 'buck';
+        
+        // Check if photo has no tags at all
+        if (!photo.tagIds || photo.tagIds.length === 0) {
+            animalType = 'untagged';
+        } else if (tagNames.includes('Buck')) animalType = 'buck';
         else if (tagNames.includes('Doe')) animalType = 'doe';
         else if (tagNames.includes('Turkey')) animalType = 'turkey';
         else if (tagNames.includes('Bear')) animalType = 'bear';
@@ -2665,7 +2674,7 @@ async function processPhotosForChart() {
         else if (tagNames.includes('Other')) animalType = 'other_tagged';
         else if (tagNames.includes('No Animals')) animalType = 'no_animals';
         
-        if (animalType === 'other') continue; // Only chart tagged items
+        if (animalType === 'other') continue; // Skip unknown tag types
         
         uniqueDates.add(converted.dateStr);
         
@@ -2779,7 +2788,7 @@ function createMainChart() {
             backgroundColor: '#2a2a2b',
             style: { fontFamily: "'Segoe UI', sans-serif" },
             marginLeft: 70,
-            marginBottom: 80
+            marginBottom: 40
         },
         accessibility: { enabled: false },
         title: { text: 'Trail Observations', style: { color: '#E0E0E3', fontSize: '20px' } },
