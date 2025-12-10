@@ -1167,6 +1167,7 @@ async function viewOnlyLogin() {
             }
             
             if (newPhotos.length > 0) {
+                console.log('viewOnlyLogin: New photos found:', newPhotos.length, 'Total allPhotos:', allPhotos.length);
                 applyFilters();
                 
                 // Admin syncs to cache, viewer does not
@@ -1621,13 +1622,10 @@ async function initializeApp() {
         }
     });
     
-    // Photos tab listener (re-render grid when switching to photos)
+    // Photos tab listener - re-apply filters and render when switching to photos
     document.getElementById('photos-tab').addEventListener('shown.bs.tab', () => {
-        if (currentView === 'grid') {
-            renderGrid();
-        } else {
-            showCurrentPhoto();
-        }
+        console.log('Photos tab shown, re-applying filters. allPhotos:', allPhotos.length);
+        applyFilters();
     });
 }
 
@@ -1934,6 +1932,8 @@ function applyFilters() {
     const tagFilter = document.getElementById('tagFilter').value;
     const cameraFilter = document.getElementById('cameraFilter').value;
     
+    console.log('applyFilters called. allPhotos:', allPhotos.length, 'filters:', {galleryFilter, tagFilter, cameraFilter});
+    
     filteredPhotos = allPhotos.filter(photo => {
         if (galleryFilter && (!photo.photoGroupIds || !photo.photoGroupIds.includes(galleryFilter))) return false;
         if (cameraFilter && photo.cameraName !== cameraFilter) return false;
@@ -1945,6 +1945,8 @@ function applyFilters() {
         }
         return true;
     });
+    
+    console.log('After filter. filteredPhotos:', filteredPhotos.length, 'currentView:', currentView);
     
     currentIndex = 0;
     if (currentView === 'grid') {
@@ -1958,6 +1960,7 @@ function applyFilters() {
 
 // ============== PHOTO DISPLAY ==============
 function showCurrentPhoto() {
+    console.log('showCurrentPhoto called. filteredPhotos:', filteredPhotos.length, 'currentIndex:', currentIndex);
     const container = document.getElementById('photoContainer');
     const complete = document.getElementById('completeMessage');
     
@@ -2039,6 +2042,7 @@ function setView(view) {
 
 // ============== GRID VIEW ==============
 function renderGrid() {
+    console.log('renderGrid called. filteredPhotos:', filteredPhotos.length);
     const grid = document.getElementById('photoGrid');
     const loadMore = document.getElementById('gridLoadMore');
     
