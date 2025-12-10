@@ -38,6 +38,9 @@
         .navbar {
             background-color: var(--bg-card) !important;
             border-bottom: 1px solid #444;
+            position: sticky;
+            top: 0;
+            z-index: 1020;
         }
         
         .navbar-brand {
@@ -61,6 +64,16 @@
             color: var(--accent-green);
             background: transparent;
             border-bottom: 3px solid var(--accent-green);
+        }
+        
+        /* Sticky filter bar */
+        .sticky-filters {
+            position: sticky;
+            top: 56px; /* navbar height */
+            z-index: 1010;
+            background-color: var(--bg-dark);
+            padding-top: 10px;
+            margin-top: -10px;
         }
         
         /* Cards */
@@ -530,7 +543,7 @@
             <div class="container-fluid py-3">
                 
                 <!-- Filter Bar -->
-                <div class="card mb-3">
+                <div class="card mb-3 sticky-filters">
                     <div class="card-body py-2">
                         <div class="row g-2 align-items-center">
                             <div class="col-auto">
@@ -693,7 +706,7 @@
             <div class="container-fluid py-3">
                 
                 <!-- Dashboard Filters -->
-                <div class="card mb-3">
+                <div class="card mb-3 sticky-filters">
                     <div class="card-body py-2">
                         <div class="row g-2 align-items-center">
                             <div class="col-auto">
@@ -2839,14 +2852,16 @@ function createMainChart() {
             gridLineColor: '#444',
             opposite: false,
             top: '5%',
-            height: '75%',
+            height: '80%',
             labels: { 
                 align: 'right',
                 x: -10,
+                y: 3,
                 style: { color: '#E0E0E3' }, 
                 formatter: function() { return Highcharts.dateFormat('%l %P', this.value); } 
             },
-            title: { enabled: false }
+            title: { enabled: false },
+            reversed: true
         }, {
             top: '0%', height: '5%', min: 0, max: 1, gridLineWidth: 0, labels: { enabled: false }, title: { enabled: false }, opposite: false
         }],
