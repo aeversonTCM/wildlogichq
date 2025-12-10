@@ -316,7 +316,7 @@
         .grid-selected-count { color: var(--accent-green); font-weight: bold; font-size: 14px; margin-bottom: 5px; }
         
         /* Dashboard */
-        #chart_main { height: 520px; background: var(--bg-card); border-radius: 8px; overflow: visible; }
+        #chart_main { height: 500px; background: var(--bg-card); border-radius: 8px; overflow: visible; }
         #chart_polar { width: 500px; height: 500px; }
         #chart_weather { width: 100%; height: 450px; }
         #chart_forecast { height: 300px; }
@@ -750,7 +750,7 @@
                 <div class="card mb-4" style="overflow: visible;">
                     <div class="card-body" style="overflow: visible;">
                         <div class="row">
-                            <div class="col-8" style="padding-bottom: 40px; overflow: visible;">
+                            <div class="col-8" style="overflow: visible;">
                                 <div id="chart_main"></div>
                             </div>
                             <div class="col-4">
@@ -2822,7 +2822,7 @@ function createMainChart() {
             align: 'left',
             verticalAlign: 'bottom',
             x: 10,
-            y: 5
+            y: 0
         },
         rangeSelector: {
             selected: 1,
