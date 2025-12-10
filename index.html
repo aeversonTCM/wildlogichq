@@ -1438,13 +1438,23 @@ function saveToLocalCache(data) {
             timestamp: Date.now(),
             ...data
         };
-        localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(cacheData));
-        console.log('Saved to local cache:', {
-            photos: data.photos?.length || 0,
-            tags: data.tags?.length || 0,
-            galleries: data.galleries?.length || 0,
-            sunDataDates: Object.keys(data.sunData || {}).length
-        });
+        const jsonStr = JSON.stringify(cacheData);
+        console.log('Saving to local cache, size:', Math.round(jsonStr.length / 1024), 'KB');
+        localStorage.setItem(LOCAL_CACHE_KEY, jsonStr);
+        
+        // Verify it was saved
+        const verify = localStorage.getItem(LOCAL_CACHE_KEY);
+        if (verify) {
+            console.log('✅ Local cache saved successfully:', {
+                photos: data.photos?.length || 0,
+                tags: data.tags?.length || 0,
+                galleries: data.galleries?.length || 0,
+                sunDataDates: Object.keys(data.sunData || {}).length,
+                sizeKB: Math.round(verify.length / 1024)
+            });
+        } else {
+            console.error('❌ Local cache save FAILED - not found after save');
+        }
         return true;
     } catch (e) {
         console.error('Local cache save error:', e);
@@ -1458,15 +1468,21 @@ function saveToLocalCache(data) {
 }
 
 function loadFromLocalCache() {
+    console.log('Attempting to load from local cache, key:', LOCAL_CACHE_KEY);
     try {
         const cached = localStorage.getItem(LOCAL_CACHE_KEY);
-        if (!cached) return null;
+        console.log('localStorage.getItem result:', cached ? `${Math.round(cached.length/1024)}KB` : 'null');
+        
+        if (!cached) {
+            console.log('❌ No local cache found');
+            return null;
+        }
         
         const data = JSON.parse(cached);
         
         // Check version compatibility
         if (data.version !== LOCAL_CACHE_VERSION) {
-            console.log('Local cache version mismatch, clearing');
+            console.log('❌ Local cache version mismatch:', data.version, 'vs expected', LOCAL_CACHE_VERSION);
             localStorage.removeItem(LOCAL_CACHE_KEY);
             return null;
         }
@@ -1480,7 +1496,7 @@ function loadFromLocalCache() {
             data._stale = true;
         }
         
-        console.log('Loaded from local cache:', {
+        console.log('✅ Loaded from local cache:', {
             photos: data.photos?.length || 0,
             tags: data.tags?.length || 0,
             galleries: data.galleries?.length || 0,
@@ -1542,11 +1558,14 @@ async function loadFromCloudCache() {
 
 // ============== HYBRID CACHE LOADER ==============
 async function loadFromCache() {
+    console.log('=== loadFromCache starting ===');
+    
     // Try local cache first (instant)
     const localData = loadFromLocalCache();
     
     if (localData && localData.photos && localData.photos.length > 0) {
         // Local cache hit!
+        console.log('✅ Using local cache with', localData.photos.length, 'photos');
         if (localData._stale) {
             console.log('Using stale local cache, will sync from cloud in background');
             // Schedule background cloud sync
@@ -1562,13 +1581,18 @@ async function loadFromCache() {
     }
     
     // No local cache - try cloud
-    if (!isCacheEnabled()) return null;
+    console.log('❌ Local cache empty or invalid, falling back to cloud');
+    if (!isCacheEnabled()) {
+        console.log('Cloud cache not enabled');
+        return null;
+    }
     
-    console.log('No local cache, loading from cloud...');
+    console.log('Loading from cloud...');
     const cloudData = await loadFromCloudCache();
     
     if (cloudData && cloudData.photos && cloudData.photos.length > 0) {
         // Save to local cache for next time
+        console.log('Saving cloud data to local cache for next time');
         saveToLocalCache(cloudData);
     }
     
@@ -1916,6 +1940,8 @@ async function initializeApp() {
     // - QuickView: use cache (same account, same data)
     // - Viewer with own login: skip cache (their data is different)
     const useCache = accessLevel === 'admin' || savedEmail === 'QuickView';
+    console.log('=== initializeApp cache decision ===');
+    console.log('accessLevel:', accessLevel, 'savedEmail:', savedEmail, 'useCache:', useCache);
     
     // Try loading from cache first
     const cachedData = useCache ? await loadFromCache() : null;
