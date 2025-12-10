@@ -1057,7 +1057,7 @@
             <div class="zoom-nav-zone left" id="zoomNavLeft" onclick="zoomPrev()">
                 <span class="zoom-nav-arrow">‹</span>
             </div>
-            <img id="zoomImage" class="zoom-modal-img" src="" alt="Photo" crossorigin="anonymous" />
+            <img id="zoomImage" class="zoom-modal-img" src="" alt="Photo" />
             <div class="zoom-nav-zone right" id="zoomNavRight" onclick="zoomNext()">
                 <span class="zoom-nav-arrow">›</span>
             </div>
@@ -3232,46 +3232,24 @@ async function zoomTagPhoto(tagName) {
     }
 }
 
-function zoomDownloadPhoto() {
+async function zoomDownloadPhoto() {
     const photo = filteredPhotos[zoomIndex];
     if (!photo) return;
     
-    const img = document.getElementById('zoomImage');
-    if (!img || !img.complete) {
-        alert('Please wait for image to load');
-        return;
-    }
-    
     try {
-        // Create canvas and draw the already-loaded image
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        
-        // Convert to blob and download
-        canvas.toBlob((blob) => {
-            if (!blob) {
-                // Fallback: open in new tab
-                window.open(photo.photoUrl, '_blank');
-                return;
-            }
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            const photoDate = getPhotoDate(photo);
-            const dateStr = photoDate ? new Date(photoDate).toISOString().split('T')[0] : 'unknown';
-            a.download = `${photo.cameraName || 'photo'}_${dateStr}.jpg`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }, 'image/jpeg', 0.95);
-    } catch (e) {
-        console.error('Download error:', e);
-        // Fallback: open in new tab
-        window.open(photo.photoUrl, '_blank');
+        const response = await fetch(photo.photoUrl);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const photoDate = getPhotoDate(photo);
+        const dateStr = photoDate ? new Date(photoDate).toISOString().split('T')[0] : 'unknown';
+        a.download = `${photo.cameraName || 'photo'}_${dateStr}.jpg`;
+        a.click();
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        console.error('Error downloading photo:', err);
+        alert('Failed to download photo');
     }
 }
 
