@@ -2777,7 +2777,7 @@ function renderGrid() {
             <div class="grid-item ${isSelected ? 'selected' : ''}" data-photo-id="${photo.photoId}" onclick="togglePhotoSelection('${photo.photoId}', event)">
                 <div class="grid-item-checkbox">${isSelected ? '✓' : ''}</div>
                 <img class="grid-item-img" src="${photo.photoUrl}" loading="lazy" />
-                <div class="grid-zoom-overlay" onclick="openZoomModal(${index}, event)">Quick Tag</div>
+                <div class="grid-zoom-overlay" onclick="openZoomModal(${index}, event)">Zoom</div>
                 <div class="grid-item-info">
                     <div class="camera">${photo.cameraName || 'Unknown'}</div>
                     <div>${formatDate(photoDate)} ${formatTime(photoDate)}</div>
@@ -3069,6 +3069,9 @@ function openZoomModal(index, e) {
 function closeZoomModal() {
     zoomModalOpen = false;
     document.getElementById('zoomModal').style.display = 'none';
+    // Reset Rapid checkbox to default (unchecked)
+    const rapidCheckbox = document.getElementById('rapidDeleteCheckbox');
+    if (rapidCheckbox) rapidCheckbox.checked = false;
 }
 
 function zoomPrev() {
