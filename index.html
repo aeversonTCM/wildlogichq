@@ -3242,28 +3242,25 @@ async function zoomDownloadPhoto() {
     btn.disabled = true;
     
     try {
-        console.log('Fetching URL:', photo.photoUrl);
+        // Use Apps Script proxy to bypass CORS
+        const proxyUrl = `${CONFIG.googleSheetsUrl}?action=downloadImage&url=${encodeURIComponent(photo.photoUrl)}`;
+        const response = await fetch(proxyUrl);
+        const result = await response.json();
         
-        const response = await fetch(photo.photoUrl, {
-            method: 'GET',
-            mode: 'cors'
-        });
-        
-        console.log('Response status:', response.status);
-        console.log('Response ok:', response.ok);
-        console.log('Response headers:', [...response.headers.entries()]);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (!result.success) {
+            throw new Error(result.error || 'Download failed');
         }
         
-        const blob = await response.blob();
-        console.log('Blob size:', blob.size, 'type:', blob.type);
-        
-        if (blob.size === 0) {
-            throw new Error('Downloaded file is empty');
+        // Decode base64 to blob
+        const byteCharacters = atob(result.data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
         }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: result.contentType || 'image/jpeg' });
         
+        // Trigger download
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
