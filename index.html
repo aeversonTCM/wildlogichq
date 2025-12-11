@@ -5767,10 +5767,18 @@ function createForecastChart(days) {
             style: { color: '#E0E0E3' },
             useHTML: true,
             positioner: function(labelWidth, labelHeight, point) {
-                return {
-                    x: point.plotX + this.chart.plotLeft + 15,
-                    y: point.plotY + this.chart.plotTop - labelHeight - 10
-                };
+                let x = point.plotX + this.chart.plotLeft + 15;
+                let y = point.plotY + this.chart.plotTop - labelHeight - 10;
+                
+                // Keep tooltip from going above chart
+                if (y < 0) y = 10;
+                
+                // Keep tooltip from going past right edge
+                if (x + labelWidth > this.chart.chartWidth) {
+                    x = point.plotX + this.chart.plotLeft - labelWidth - 15;
+                }
+                
+                return { x: x, y: y };
             },
             formatter: function() {
                 const idx = this.points[0].point.index;
@@ -6183,10 +6191,18 @@ function createPredictionChart() {
             style: { color: '#E0E0E3' },
             useHTML: true,
             positioner: function(labelWidth, labelHeight, point) {
-                return {
-                    x: point.plotX + this.chart.plotLeft + 15,
-                    y: point.plotY + this.chart.plotTop - labelHeight - 10
-                };
+                let x = point.plotX + this.chart.plotLeft + 15;
+                let y = point.plotY + this.chart.plotTop - labelHeight - 10;
+                
+                // Keep tooltip from going above chart
+                if (y < 0) y = 10;
+                
+                // Keep tooltip from going past right edge
+                if (x + labelWidth > this.chart.chartWidth) {
+                    x = point.plotX + this.chart.plotLeft - labelWidth - 15;
+                }
+                
+                return { x: x, y: y };
             },
             formatter: function() {
                 const idx = this.points[0].point.index;
