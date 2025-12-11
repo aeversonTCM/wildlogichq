@@ -899,12 +899,12 @@
                 <!-- Conditions Overview -->
                 <div class="card mb-4">
                     <div class="card-body py-3">
-                        <div class="row">
+                        <div class="row align-items-center">
                             <!-- Optimal for Deer (Left) -->
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center gap-3 flex-wrap">
-                                    <span class="text-success fw-bold"><i class="bi bi-bullseye me-1"></i>Optimal for Deer:</span>
-                                    <div id="optimalConditions" class="d-flex gap-3 flex-wrap" style="font-size: 13px;">
+                                    <span class="text-success fw-bold"><i class="bi bi-bullseye me-1"></i>Optimal:</span>
+                                    <div id="optimalConditions" class="d-flex gap-3 flex-wrap text-white" style="font-size: 13px;">
                                         <span class="text-muted">Loading...</span>
                                     </div>
                                 </div>
@@ -913,7 +913,7 @@
                             <div class="col-md-6">
                                 <div class="d-flex align-items-center gap-3 flex-wrap">
                                     <span class="text-info fw-bold"><i class="bi bi-cloud-sun me-1"></i>Current:</span>
-                                    <div id="currentConditions" class="d-flex gap-3 flex-wrap" style="font-size: 13px;">
+                                    <div id="currentConditions" class="d-flex gap-3 flex-wrap text-white" style="font-size: 13px;">
                                         <span class="text-muted">Loading...</span>
                                     </div>
                                 </div>
@@ -5581,10 +5581,10 @@ function updateCurrentConditions(current) {
     
     const container = document.getElementById('currentConditions');
     container.innerHTML = `
-        <span style="color: #AF7AC5;">Press:</span> <b>${pressure}</b>
-        <span class="ms-2" style="color: #F4D03F;">Temp:</span> <b>${Math.round(current.temperature_2m)}°F</b>
-        <span class="ms-2" style="color: #7FB3D5;">Wind:</span> <b>${windDir} ${Math.round(current.wind_speed_10m)}mph</b>
-        <span class="ms-2" style="color: #D4AC0D;">Moon:</span> <b>${moonSymbol} ${moonName}</b>
+        <span><span style="color: #AF7AC5;">Press:</span> <b>${pressure}</b></span>
+        <span><span style="color: #F4D03F;">Temp:</span> <b>${Math.round(current.temperature_2m)}°F</b></span>
+        <span><span style="color: #7FB3D5;">Wind:</span> <b>${windDir} ${Math.round(current.wind_speed_10m)}mph</b></span>
+        <span><span style="color: #D4AC0D;">Moon:</span> <b>${moonSymbol} ${moonName}</b></span>
     `;
 }
 
@@ -6106,10 +6106,10 @@ function updateOptimalConditions() {
     const bestMoon = rates.moonPhase.indexOf(Math.max(...rates.moonPhase));
     
     document.getElementById('optimalConditions').innerHTML = `
-        <span style="color: #AF7AC5;">Press:</span> <b>${pressureRange}</b>
-        <span class="ms-2" style="color: #F4D03F;">Temp:</span> <b>${tempRange}</b>
-        <span class="ms-2" style="color: #7FB3D5;">Wind:</span> <b>${windDirLabels[bestWindDir]} ${windSpeedLabels[bestWindSpeed]}mph</b>
-        <span class="ms-2" style="color: #D4AC0D;">Moon:</span> <b>${moonLabels[bestMoon]}</b>
+        <span><span style="color: #AF7AC5;">Press:</span> <b>${pressureRange}</b></span>
+        <span><span style="color: #F4D03F;">Temp:</span> <b>${tempRange}</b></span>
+        <span><span style="color: #7FB3D5;">Wind:</span> <b>${windDirLabels[bestWindDir]} ${windSpeedLabels[bestWindSpeed]}mph</b></span>
+        <span><span style="color: #D4AC0D;">Moon:</span> <b>${moonLabels[bestMoon]}</b></span>
     `;
 }
 
