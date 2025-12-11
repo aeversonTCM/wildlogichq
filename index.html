@@ -3244,8 +3244,16 @@ async function zoomDownloadPhoto() {
     try {
         // Use Apps Script proxy to bypass CORS
         const proxyUrl = `${CONFIG.googleSheetsUrl}?action=downloadImage&url=${encodeURIComponent(photo.photoUrl)}`;
+        console.log('Proxy URL:', proxyUrl);
+        
         const response = await fetch(proxyUrl);
-        const result = await response.json();
+        console.log('Response status:', response.status);
+        
+        const text = await response.text();
+        console.log('Raw response:', text.substring(0, 500));
+        
+        const result = JSON.parse(text);
+        console.log('Parsed result:', result.success, result.error);
         
         if (!result.success) {
             throw new Error(result.error || 'Download failed');
