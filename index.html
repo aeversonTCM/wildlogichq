@@ -1061,28 +1061,43 @@
                             <div class="card-body">
                                 <p class="text-muted small mb-3">Adjust how much each weather factor influences the Activity Prediction score (must total 100%).</p>
                                 <div class="row g-3">
-                                    <div class="col-6 col-md-4">
-                                        <label class="form-label small" style="color: #AF7AC5;">Pressure %</label>
-                                        <input type="number" id="weightPressure" value="30" min="0" max="100" class="form-control form-control-sm" onchange="updatePredictionChart()">
+                                    <div class="col-12 col-md-6">
+                                        <div class="d-flex justify-content-between">
+                                            <label class="form-label small mb-1" style="color: #AF7AC5;">Pressure</label>
+                                            <span class="small" id="weightPressureValue" style="color: #AF7AC5;">30%</span>
+                                        </div>
+                                        <input type="range" id="weightPressure" value="30" min="0" max="100" step="5" class="form-range" oninput="updateWeightSlider(this)">
                                     </div>
-                                    <div class="col-6 col-md-4">
-                                        <label class="form-label small" style="color: #7FB3D5;">Wind Direction %</label>
-                                        <input type="number" id="weightWindDir" value="20" min="0" max="100" class="form-control form-control-sm" onchange="updatePredictionChart()">
+                                    <div class="col-12 col-md-6">
+                                        <div class="d-flex justify-content-between">
+                                            <label class="form-label small mb-1" style="color: #7FB3D5;">Wind Direction</label>
+                                            <span class="small" id="weightWindDirValue" style="color: #7FB3D5;">20%</span>
+                                        </div>
+                                        <input type="range" id="weightWindDir" value="20" min="0" max="100" step="5" class="form-range" oninput="updateWeightSlider(this)">
                                     </div>
-                                    <div class="col-6 col-md-4">
-                                        <label class="form-label small" style="color: #7FB3D5;">Wind Speed %</label>
-                                        <input type="number" id="weightWindSpeed" value="20" min="0" max="100" class="form-control form-control-sm" onchange="updatePredictionChart()">
+                                    <div class="col-12 col-md-6">
+                                        <div class="d-flex justify-content-between">
+                                            <label class="form-label small mb-1" style="color: #7FB3D5;">Wind Speed</label>
+                                            <span class="small" id="weightWindSpeedValue" style="color: #7FB3D5;">20%</span>
+                                        </div>
+                                        <input type="range" id="weightWindSpeed" value="20" min="0" max="100" step="5" class="form-range" oninput="updateWeightSlider(this)">
                                     </div>
-                                    <div class="col-6 col-md-4">
-                                        <label class="form-label small" style="color: #D4AC0D;">Moon Phase %</label>
-                                        <input type="number" id="weightMoon" value="20" min="0" max="100" class="form-control form-control-sm" onchange="updatePredictionChart()">
+                                    <div class="col-12 col-md-6">
+                                        <div class="d-flex justify-content-between">
+                                            <label class="form-label small mb-1" style="color: #D4AC0D;">Moon Phase</label>
+                                            <span class="small" id="weightMoonValue" style="color: #D4AC0D;">20%</span>
+                                        </div>
+                                        <input type="range" id="weightMoon" value="20" min="0" max="100" step="5" class="form-range" oninput="updateWeightSlider(this)">
                                     </div>
-                                    <div class="col-6 col-md-4">
-                                        <label class="form-label small" style="color: #F4D03F;">Temperature %</label>
-                                        <input type="number" id="weightTemp" value="10" min="0" max="100" class="form-control form-control-sm" onchange="updatePredictionChart()">
+                                    <div class="col-12 col-md-6">
+                                        <div class="d-flex justify-content-between">
+                                            <label class="form-label small mb-1" style="color: #F4D03F;">Temperature</label>
+                                            <span class="small" id="weightTempValue" style="color: #F4D03F;">10%</span>
+                                        </div>
+                                        <input type="range" id="weightTemp" value="10" min="0" max="100" step="5" class="form-range" oninput="updateWeightSlider(this)">
                                     </div>
-                                    <div class="col-6 col-md-4 d-flex align-items-end">
-                                        <span class="text-muted" id="totalWeightDisplay">= 100%</span>
+                                    <div class="col-12 col-md-6 d-flex align-items-center justify-content-center">
+                                        <span class="fw-bold" id="totalWeightDisplay" style="color: #4CAF50;">Total: 100%</span>
                                     </div>
                                 </div>
                             </div>
@@ -4841,21 +4856,7 @@ function createMainChart() {
                 point: {
                     events: {
                         mouseOver: function() {
-                            const point = this;
-                            // Clear any pending tooltip update
-                            if (window.tooltipDelayTimer) {
-                                clearTimeout(window.tooltipDelayTimer);
-                            }
-                            // Delay tooltip update by 250ms
-                            window.tooltipDelayTimer = setTimeout(() => {
-                                updateTooltipPanel(point);
-                            }, 250);
-                        },
-                        mouseOut: function() {
-                            // Clear pending tooltip if mouse leaves before delay
-                            if (window.tooltipDelayTimer) {
-                                clearTimeout(window.tooltipDelayTimer);
-                            }
+                            updateTooltipPanel(this);
                         }
                     }
                 }
@@ -6037,6 +6038,95 @@ function getForecastBucketIndex(day, field) {
     }
 }
 
+function updateWeightSlider(changedSlider) {
+    const sliderIds = ['weightPressure', 'weightWindDir', 'weightWindSpeed', 'weightMoon', 'weightTemp'];
+    const sliders = sliderIds.map(id => document.getElementById(id));
+    const changedId = changedSlider.id;
+    
+    // Get current values
+    let values = {};
+    sliders.forEach(s => {
+        values[s.id] = parseInt(s.value);
+    });
+    
+    // Calculate total
+    let total = Object.values(values).reduce((a, b) => a + b, 0);
+    
+    // If total exceeds 100, reduce other sliders
+    if (total > 100) {
+        const excess = total - 100;
+        const otherSliderIds = sliderIds.filter(id => id !== changedId);
+        const otherSliders = otherSliderIds.map(id => document.getElementById(id));
+        
+        // Get sum of other sliders
+        let otherTotal = otherSliderIds.reduce((sum, id) => sum + values[id], 0);
+        
+        if (otherTotal > 0) {
+            // Distribute reduction proportionally
+            let remainingExcess = excess;
+            
+            // Sort other sliders by value descending so we reduce larger ones first
+            otherSliders.sort((a, b) => parseInt(b.value) - parseInt(a.value));
+            
+            for (let slider of otherSliders) {
+                if (remainingExcess <= 0) break;
+                
+                const currentVal = parseInt(slider.value);
+                const proportion = currentVal / otherTotal;
+                let reduction = Math.ceil(excess * proportion);
+                
+                // Round to nearest 5
+                reduction = Math.round(reduction / 5) * 5;
+                if (reduction < 5 && currentVal >= 5) reduction = 5;
+                
+                const newVal = Math.max(0, currentVal - reduction);
+                const actualReduction = currentVal - newVal;
+                
+                slider.value = newVal;
+                values[slider.id] = newVal;
+                remainingExcess -= actualReduction;
+            }
+            
+            // If still over 100, do another pass
+            total = Object.values(values).reduce((a, b) => a + b, 0);
+            while (total > 100) {
+                for (let slider of otherSliders) {
+                    if (total <= 100) break;
+                    const currentVal = parseInt(slider.value);
+                    if (currentVal >= 5) {
+                        slider.value = currentVal - 5;
+                        values[slider.id] = currentVal - 5;
+                        total -= 5;
+                    }
+                }
+                // Safety check to prevent infinite loop
+                const newTotal = Object.values(values).reduce((a, b) => a + b, 0);
+                if (newTotal >= total) break;
+                total = newTotal;
+            }
+        }
+    }
+    
+    // Update all value displays
+    sliderIds.forEach(id => {
+        const valueSpan = document.getElementById(id + 'Value');
+        if (valueSpan) {
+            valueSpan.textContent = values[id] + '%';
+        }
+    });
+    
+    // Update total display
+    total = Object.values(values).reduce((a, b) => a + b, 0);
+    const totalDisplay = document.getElementById('totalWeightDisplay');
+    if (totalDisplay) {
+        totalDisplay.textContent = `Total: ${total}%`;
+        totalDisplay.style.color = total === 100 ? '#4CAF50' : '#FFC107';
+    }
+    
+    // Update the prediction chart
+    updatePredictionChart();
+}
+
 function calculateActivityScore(day, rates, period = 'all') {
     const weights = {
         pressure: parseInt(document.getElementById('weightPressure')?.value) || 30,
@@ -6049,7 +6139,7 @@ function calculateActivityScore(day, rates, period = 'all') {
     const totalWeight = Object.values(weights).reduce((a, b) => a + b, 0);
     const totalDisplay = document.getElementById('totalWeightDisplay');
     if (totalDisplay) {
-        totalDisplay.textContent = `= ${totalWeight}%`;
+        totalDisplay.textContent = `Total: ${totalWeight}%`;
         totalDisplay.style.color = totalWeight === 100 ? '#4CAF50' : '#FFC107';
     }
     
