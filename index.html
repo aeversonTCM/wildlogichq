@@ -5309,13 +5309,13 @@ function createWeatherChart() {
     Highcharts.chart('chart_weather', {
         chart: {
             type: 'column',
-            backgroundColor: 'transparent'
+            backgroundColor: 'transparent',
+            marginTop: 40
         },
         accessibility: { enabled: false },
         
         title: {
-            text: ' ',
-            style: { color: 'transparent', fontSize: '18px' }
+            text: null
         },
         
         xAxis: {
