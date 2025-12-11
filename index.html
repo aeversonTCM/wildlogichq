@@ -6090,6 +6090,10 @@ function createPredictionChart() {
     const bestMorningTopBlock = Math.floor(morningScores[bestMorningIdx] / 2) - 1;
     const bestEveningTopBlock = Math.floor(eveningScores[bestEveningIdx] / 2) - 1;
     
+    // Track if star has been placed
+    let morningStarPlaced = false;
+    let eveningStarPlaced = false;
+    
     for (let block = 0; block < 5; block++) {
         const low = block * 2 + (gap / 2);
         const high = (block + 1) * 2 - (gap / 2);
@@ -6105,12 +6109,14 @@ function createPredictionChart() {
             pointPlacement: -0.12,
             pointWidth: 18,
             grouping: false,
+            dataLabels: { enabled: false },
             data: morningScores.map((score, idx) => {
                 const filledBlocks = Math.floor(score / 2);
                 if (block >= filledBlocks) return null;
                 const isBest = idx === bestMorningIdx;
-                // Star only on the top block of the best morning day
-                const showStar = isBest && block === bestMorningTopBlock;
+                // Star only on the top block of the best morning day, and only once
+                const showStar = isBest && block === bestMorningTopBlock && !morningStarPlaced;
+                if (showStar) morningStarPlaced = true;
                 return {
                     x: idx,
                     low: low,
@@ -6135,12 +6141,14 @@ function createPredictionChart() {
             pointPlacement: 0.12,
             pointWidth: 18,
             grouping: false,
+            dataLabels: { enabled: false },
             data: eveningScores.map((score, idx) => {
                 const filledBlocks = Math.floor(score / 2);
                 if (block >= filledBlocks) return null;
                 const isBest = idx === bestEveningIdx;
-                // Star only on the top block of the best evening day
-                const showStar = isBest && block === bestEveningTopBlock;
+                // Star only on the top block of the best evening day, and only once
+                const showStar = isBest && block === bestEveningTopBlock && !eveningStarPlaced;
+                if (showStar) eveningStarPlaced = true;
                 return {
                     x: idx,
                     low: low,
