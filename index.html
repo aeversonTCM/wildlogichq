@@ -3236,6 +3236,11 @@ async function zoomDownloadPhoto() {
     const photo = filteredPhotos[zoomIndex];
     if (!photo) return;
     
+    const btn = document.querySelector('.zoom-download-btn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Downloading...';
+    btn.disabled = true;
+    
     try {
         const response = await fetch(photo.photoUrl);
         const blob = await response.blob();
@@ -3245,11 +3250,16 @@ async function zoomDownloadPhoto() {
         const photoDate = getPhotoDate(photo);
         const dateStr = photoDate ? new Date(photoDate).toISOString().split('T')[0] : 'unknown';
         a.download = `${photo.cameraName || 'photo'}_${dateStr}.jpg`;
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
         URL.revokeObjectURL(url);
     } catch (err) {
         console.error('Error downloading photo:', err);
-        alert('Failed to download photo');
+        alert('Failed to download photo: ' + err.message);
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
     }
 }
 
