@@ -734,7 +734,7 @@
                     <option value="newest">Newest First</option>
                     <option value="oldest">Oldest First</option>
                 </select>
-                <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()">Clear</button>
+                <button class="btn btn-outline-secondary btn-sm" id="clearFiltersBtn" onclick="clearFilters()" style="display: none;">Clear</button>
             </div>
             <div class="d-flex gap-2 align-items-center">
                 <span class="text-light" style="opacity: 0.5;">
@@ -2650,7 +2650,15 @@ function applyFilters() {
     const cameraFilter = document.getElementById('cameraFilter').value;
     const tagFilter = document.getElementById('tagFilter').value;
     const galleryFilter = document.getElementById('galleryFilter').value;
+    const dayNightFilter = document.getElementById('dayNightFilter').value;
     const sortOrder = document.getElementById('sortOrder').value;
+    
+    // Show/hide Clear button based on whether any filter is active
+    const hasActiveFilter = locationFilter || cameraFilter || tagFilter || galleryFilter || dayNightFilter;
+    const clearBtn = document.getElementById('clearFiltersBtn');
+    if (clearBtn) {
+        clearBtn.style.display = hasActiveFilter ? 'inline-block' : 'none';
+    }
     
     // Sort allPhotos by date
     allPhotos.sort((a, b) => {
