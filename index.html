@@ -6074,9 +6074,7 @@ function createPredictionChart() {
     
     // Colors
     const morningFill = '#F4D03F';
-    const morningBest = '#FFD700';
     const eveningFill = '#5D6D7E';
-    const eveningBest = '#8395A7';
     const borderColor = '#555';
     
     // Build columnrange series - each segment is independently positioned
@@ -6113,15 +6111,13 @@ function createPredictionChart() {
                 x: idx,
                 low: low,
                 high: high,
-                color: (idx === bestMorningIdx) ? morningBest : morningFill,
+                color: morningFill,
                 dataLabels: showStar ? { enabled: true, format: '⭐', style: { fontSize: '14px', textOutline: 'none' }, y: -5 } : { enabled: false }
             });
         }
         
         series.push({
             name: block === 0 ? 'Morning' : undefined,
-            linkedTo: block === 0 ? undefined : 'morning',
-            id: block === 0 ? 'morning' : undefined,
             type: 'columnrange',
             showInLegend: block === 0,
             color: morningFill,
@@ -6149,15 +6145,13 @@ function createPredictionChart() {
                 x: idx,
                 low: low,
                 high: high,
-                color: (idx === bestEveningIdx) ? eveningBest : eveningFill,
+                color: eveningFill,
                 dataLabels: showStar ? { enabled: true, format: '⭐', style: { fontSize: '14px', textOutline: 'none' }, y: -5 } : { enabled: false }
             });
         }
         
         series.push({
             name: block === 0 ? 'Evening' : undefined,
-            linkedTo: block === 0 ? undefined : 'evening',
-            id: block === 0 ? 'evening' : undefined,
             type: 'columnrange',
             showInLegend: block === 0,
             color: eveningFill,
