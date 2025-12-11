@@ -4841,21 +4841,7 @@ function createMainChart() {
                 point: {
                     events: {
                         mouseOver: function() {
-                            const point = this;
-                            // Clear any pending tooltip update
-                            if (window.tooltipDelayTimer) {
-                                clearTimeout(window.tooltipDelayTimer);
-                            }
-                            // Delay tooltip update by 300ms
-                            window.tooltipDelayTimer = setTimeout(() => {
-                                updateTooltipPanel(point);
-                            }, 300);
-                        },
-                        mouseOut: function() {
-                            // Clear pending tooltip if mouse leaves before delay
-                            if (window.tooltipDelayTimer) {
-                                clearTimeout(window.tooltipDelayTimer);
-                            }
+                            updateTooltipPanel(this);
                         }
                     }
                 }
@@ -6083,28 +6069,62 @@ function createPredictionChart() {
     const morningScores = forecastDays.map(d => calculateActivityScore(d, rates, 'morning'));
     const eveningScores = forecastDays.map(d => calculateActivityScore(d, rates, 'evening'));
     
-    // Colors
-    const morningFill = '#F4D03F';
-    const eveningFill = '#5D6D7E';
-    
-    // Calculate total day scores (morning + evening) for best day
+    // Calculate best day based on total score (morning + evening)
     const totalScores = morningScores.map((m, idx) => m + eveningScores[idx]);
     const bestDayIdx = totalScores.indexOf(Math.max(...totalScores));
     
-    console.log('Morning scores:', morningScores);
-    console.log('Evening scores:', eveningScores);
-    console.log('Total scores:', totalScores);
-    console.log('Best day idx:', bestDayIdx);
+    // Colors
+    const morningFill = '#F4D03F';
+    const eveningFill = '#5D6D7E';
+    const emptyColor = 'rgba(80, 80, 80, 0.3)';
+    const borderColor = '#555';
     
-    const series = [{
-        name: 'Morning',
-        color: morningFill,
-        data: morningScores
-    }, {
-        name: 'Evening',
-        color: eveningFill,
-        data: eveningScores
-    }];
+    // Build 5 stacked series for morning and 5 for evening
+    const series = [];
+    
+    for (let block = 0; block < 5; block++) {
+        // Morning block
+        series.push({
+            name: block === 0 ? 'Morning' : undefined,
+            linkedTo: block === 0 ? undefined : 'morning',
+            id: block === 0 ? 'morning' : undefined,
+            stack: 'morning',
+            showInLegend: block === 0,
+            color: morningFill,
+            data: morningScores.map((score, idx) => {
+                const filledBlocks = Math.floor(score / 2);
+                const isFilled = block < filledBlocks;
+                return {
+                    y: 2,
+                    color: isFilled ? morningFill : emptyColor
+                };
+            }),
+            borderWidth: 1,
+            borderColor: borderColor,
+            borderRadius: 3
+        });
+        
+        // Evening block
+        series.push({
+            name: block === 0 ? 'Evening' : undefined,
+            linkedTo: block === 0 ? undefined : 'evening',
+            id: block === 0 ? 'evening' : undefined,
+            stack: 'evening',
+            showInLegend: block === 0,
+            color: eveningFill,
+            data: eveningScores.map((score, idx) => {
+                const filledBlocks = Math.floor(score / 2);
+                const isFilled = block < filledBlocks;
+                return {
+                    y: 2,
+                    color: isFilled ? eveningFill : emptyColor
+                };
+            }),
+            borderWidth: 1,
+            borderColor: borderColor,
+            borderRadius: 3
+        });
+    }
     
     Highcharts.chart('chart_prediction', {
         chart: {
@@ -6141,6 +6161,7 @@ function createPredictionChart() {
             gridLineWidth: 0,
             labels: { enabled: false },
             title: { text: null },
+            reversedStacks: false,
             plotLines: [{
                 value: 10,
                 color: '#555',
@@ -6163,7 +6184,6 @@ function createPredictionChart() {
             formatter: function() {
                 const idx = this.points[0].point.index;
                 const day = forecastDays[idx];
-                if (!day) return false;
                 const date = new Date(day.datetime + 'T12:00:00');
                 const dateStr = Highcharts.dateFormat('%a, %b. %e', date);
                 let html = `<b>${dateStr}</b><br/>`;
@@ -6177,11 +6197,10 @@ function createPredictionChart() {
         
         plotOptions: {
             column: {
-                grouping: true,
-                groupPadding: 0.15,
+                stacking: 'normal',
+                groupPadding: 0.1,
                 pointPadding: 0.05,
-                borderWidth: 0,
-                borderRadius: 3
+                borderRadius: 2
             }
         },
         
