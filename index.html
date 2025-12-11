@@ -6077,29 +6077,38 @@ function createPredictionChart() {
     const morningBest = '#FFD700';
     const eveningFill = '#5D6D7E';
     const eveningBest = '#8395A7';
-    const emptyColor = 'rgba(80, 80, 80, 0.3)';
-    const borderColor = '#555'; // Thin grey border
+    const borderColor = '#555';
     
-    // Build 5 stacked series for morning and 5 for evening
-    // Start from block 0 (bottom) to block 4 (top) so they stack correctly
+    // Build columnrange series - each segment is independently positioned
+    // Segment heights: 0-2, 2-4, 4-6, 6-8, 8-10 with small gaps
+    const gap = 0.3;
+    const segmentHeight = 2 - gap;
+    
     const series = [];
     
     for (let block = 0; block < 5; block++) {
-        // Morning block - block 0 is bottom, block 4 is top
+        const low = block * 2 + (gap / 2);
+        const high = (block + 1) * 2 - (gap / 2);
+        
+        // Morning segments
         series.push({
             name: block === 0 ? 'Morning' : undefined,
             linkedTo: block === 0 ? undefined : 'morning',
             id: block === 0 ? 'morning' : undefined,
-            stack: 'morning',
+            type: 'columnrange',
             showInLegend: block === 0,
+            pointPlacement: -0.15,
+            pointWidth: 20,
             data: morningScores.map((score, idx) => {
                 const filledBlocks = Math.floor(score / 2);
-                const isFilled = block < filledBlocks; // block 0 fills first, then 1, 2, etc.
+                if (block >= filledBlocks) return null;
                 const isBest = idx === bestMorningIdx;
                 return {
-                    y: 2,
-                    color: isFilled ? (isBest ? morningBest : morningFill) : emptyColor,
-                    dataLabels: (block === 4 && isBest) ? { enabled: true, format: '⭐', style: { fontSize: '14px', textOutline: 'none' }, y: -5 } : { enabled: false }
+                    x: idx,
+                    low: low,
+                    high: high,
+                    color: isBest ? morningBest : morningFill,
+                    dataLabels: (block === filledBlocks - 1 && isBest) ? { enabled: true, format: '⭐', style: { fontSize: '14px', textOutline: 'none' }, y: -5 } : { enabled: false }
                 };
             }),
             borderWidth: 1,
@@ -6107,21 +6116,25 @@ function createPredictionChart() {
             borderRadius: 3
         });
         
-        // Evening block
+        // Evening segments
         series.push({
             name: block === 0 ? 'Evening' : undefined,
             linkedTo: block === 0 ? undefined : 'evening',
             id: block === 0 ? 'evening' : undefined,
-            stack: 'evening',
+            type: 'columnrange',
             showInLegend: block === 0,
+            pointPlacement: 0.15,
+            pointWidth: 20,
             data: eveningScores.map((score, idx) => {
                 const filledBlocks = Math.floor(score / 2);
-                const isFilled = block < filledBlocks;
+                if (block >= filledBlocks) return null;
                 const isBest = idx === bestEveningIdx;
                 return {
-                    y: 2,
-                    color: isFilled ? (isBest ? eveningBest : eveningFill) : emptyColor,
-                    dataLabels: (block === 4 && isBest) ? { enabled: true, format: '⭐', style: { fontSize: '14px', textOutline: 'none' }, y: -5 } : { enabled: false }
+                    x: idx,
+                    low: low,
+                    high: high,
+                    color: isBest ? eveningBest : eveningFill,
+                    dataLabels: (block === filledBlocks - 1 && isBest) ? { enabled: true, format: '⭐', style: { fontSize: '14px', textOutline: 'none' }, y: -5 } : { enabled: false }
                 };
             }),
             borderWidth: 1,
@@ -6154,12 +6167,11 @@ function createPredictionChart() {
         
         yAxis: {
             min: 0,
-            max: 10,
+            max: 11.5,
             visible: false,
             gridLineWidth: 0,
             labels: { enabled: false },
-            title: { text: null },
-            reversedStacks: false
+            title: { text: null }
         },
         
         legend: {
@@ -6188,11 +6200,10 @@ function createPredictionChart() {
         },
         
         plotOptions: {
-            column: {
-                stacking: 'normal',
+            columnrange: {
                 groupPadding: 0.1,
-                pointPadding: 0.05,
-                borderRadius: 2
+                pointPadding: 0,
+                borderRadius: 3
             }
         },
         
