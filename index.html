@@ -4846,10 +4846,10 @@ function createMainChart() {
                             if (window.tooltipDelayTimer) {
                                 clearTimeout(window.tooltipDelayTimer);
                             }
-                            // Delay tooltip update by 300ms
+                            // Delay tooltip update by 250ms
                             window.tooltipDelayTimer = setTimeout(() => {
                                 updateTooltipPanel(point);
-                            }, 300);
+                            }, 250);
                         },
                         mouseOut: function() {
                             // Clear pending tooltip if mouse leaves before delay
