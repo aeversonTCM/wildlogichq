@@ -247,6 +247,12 @@
             backdrop-filter: blur(5px);
         }
         
+        /* Transparent modal content for bulk gallery */
+        #bulkGalleryModal .modal-content {
+            background: rgba(30, 30, 30, 0.75) !important;
+            backdrop-filter: blur(5px);
+        }
+        
         .zoom-modal-container {
             position: relative;
             background: var(--bg-card);
@@ -828,7 +834,7 @@
                                     <button class="btn btn-primary btn-sm" id="selectToggleBtn" onclick="toggleSelectAll()">Select All</button>
                                     <button class="btn btn-warning btn-sm" id="selectUntaggedBtn" onclick="selectUntagged()">Select Untagged</button>
                                     <hr class="my-2">
-                                    <select id="bulkTagDropdown" class="form-select form-select-sm" onchange="bulkTagFromDropdown()">
+                                    <select id="bulkTagDropdown" class="form-select form-select-sm" onchange="bulkTagFromDropdown()" disabled>
                                         <option value="">🏷️ Tag...</option>
                                         <option value="__none__">🚫 Clear</option>
                                         <option value="Buck">🦌 Buck</option>
@@ -843,13 +849,13 @@
                                         <option value="No Animals">❌ No Animals</option>
                                     </select>
                                     <hr class="my-2">
-                                    <button class="btn btn-success btn-sm" onclick="openBulkGalleryModal()">
+                                    <button class="btn btn-success btn-sm" id="bulkGalleryBtn" onclick="openBulkGalleryModal()" disabled>
                                         <i class="bi bi-folder-plus me-1"></i>Add to Gallery
                                     </button>
-                                    <button class="btn btn-info btn-sm" onclick="bulkDownload()">
+                                    <button class="btn btn-info btn-sm" id="bulkDownloadBtn" onclick="bulkDownload()" disabled>
                                         <i class="bi bi-download me-1"></i>Download
                                     </button>
-                                    <button class="btn btn-danger btn-sm" onclick="openBulkDeleteModal()">
+                                    <button class="btn btn-danger btn-sm" id="bulkDeleteBtn" onclick="openBulkDeleteModal()" disabled>
                                         <i class="bi bi-trash me-1"></i>Delete
                                     </button>
                                 </div>
@@ -1111,7 +1117,7 @@
             <div class="zoom-left-spacer"></div>
             <div class="zoom-actions" id="zoomActions"></div>
             <div class="zoom-right-section">
-                <button class="zoom-gallery-btn" onclick="openGalleryModal()"><i class="bi bi-folder-plus"></i> Gallery</button>
+                <button class="zoom-gallery-btn" onclick="openGalleryModal()"><i class="bi bi-folder-plus"></i> Add to Gallery</button>
                 <button class="zoom-download-btn" onclick="zoomDownloadPhoto()"><i class="bi bi-download"></i> Download</button>
             </div>
         </div>
@@ -2880,6 +2886,13 @@ function updateBulkActionBar() {
     const untaggedBtn = document.getElementById('selectUntaggedBtn');
     untaggedBtn.textContent = allUntaggedSelected ? 'Clear' : 'Select Untagged';
     untaggedBtn.className = allUntaggedSelected ? 'btn btn-secondary btn-sm' : 'btn btn-warning btn-sm';
+    
+    // Enable/disable bulk action buttons based on selection
+    const hasSelection = count > 0;
+    document.getElementById('bulkTagDropdown').disabled = !hasSelection;
+    document.getElementById('bulkGalleryBtn').disabled = !hasSelection;
+    document.getElementById('bulkDownloadBtn').disabled = !hasSelection;
+    document.getElementById('bulkDeleteBtn').disabled = !hasSelection;
 }
 
 // ============== TAGGING ==============
@@ -2953,7 +2966,20 @@ function openGalleryModal() {
         galleryModalInstance.show();
     }
 }
-function openBulkGalleryModal() { if (selectedPhotos.size > 0) bulkGalleryModalInstance.show(); }
+function openBulkGalleryModal() { 
+    if (selectedPhotos.size > 0) {
+        const galleryEl = document.getElementById('bulkGalleryModal');
+        // Hide backdrop for bulk gallery modal
+        galleryEl.addEventListener('shown.bs.modal', function handler() {
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            if (backdrops.length > 0) {
+                backdrops[backdrops.length - 1].style.opacity = '0';
+            }
+            galleryEl.removeEventListener('shown.bs.modal', handler);
+        });
+        bulkGalleryModalInstance.show();
+    }
+}
 
 async function selectGalleryFromModal(galleryId) {
     const photo = filteredPhotos[zoomIndex];
