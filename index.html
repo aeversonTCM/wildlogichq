@@ -5286,7 +5286,7 @@ function updateCombinedScatterChart() {
 }
 
 function createWeatherChart() {
-    const field = document.getElementById('weatherField').value;
+    const field = currentWeatherField || 'windDirection';
     const { categories, dayCounts, nightCounts, title } = calculateWeatherDistribution(field);
     
     Highcharts.chart('chart_weather', {
