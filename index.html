@@ -961,14 +961,14 @@
                         <div class="row">
                             <div class="col-md-6 d-flex flex-column align-items-center">
                                 <div class="mb-2">
-                                    <label class="text-muted small me-2">Show photos by:</label>
-                                    <select id="weatherField" class="form-select form-select-sm d-inline-block w-auto" onchange="updateWeatherChart()">
-                                        <option value="windDirection">Wind Direction</option>
-                                        <option value="windSpeed">Wind Speed</option>
-                                        <option value="temperature">Temperature</option>
-                                        <option value="pressure">Barometric Pressure</option>
-                                        <option value="moonPhase">Moon Phase</option>
-                                    </select>
+                                    <span class="text-muted small me-2">Photos by:</span>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button type="button" class="btn btn-outline-secondary active" id="btnWindDirection" onclick="selectWeatherField('windDirection')">Wind Dir</button>
+                                        <button type="button" class="btn btn-outline-secondary" id="btnWindSpeed" onclick="selectWeatherField('windSpeed')">Wind Spd</button>
+                                        <button type="button" class="btn btn-outline-secondary" id="btnTemperature" onclick="selectWeatherField('temperature')">Temp</button>
+                                        <button type="button" class="btn btn-outline-secondary" id="btnPressure" onclick="selectWeatherField('pressure')">Press</button>
+                                        <button type="button" class="btn btn-outline-secondary" id="btnMoonPhase" onclick="selectWeatherField('moonPhase')">Moon</button>
+                                    </div>
                                 </div>
                                 <div id="chart_weather"></div>
                             </div>
@@ -4850,7 +4850,7 @@ function createPolarChart() {
         accessibility: { enabled: false },
         
         title: {
-            text: 'Activity: Sunrise to Sunset',
+            text: 'Daylight Activity',
             style: { color: '#E0E0E3' }
         },
         
@@ -4884,7 +4884,7 @@ function createPolarChart() {
                 useHTML: true,
                 formatter: function() {
                     const index = this.value / 15;
-                    if (index === 0) return '<b style="font-size:32px;">☀️</b>';
+                    if (index === 0) return '<b style="font-size:24px;">☀️</b>';
                     if (index === 6) return '<b style="color:#E0E0E3;">Midday</b>';
                     if (index === 12) return '<b style="font-size:32px;">☽</b>';
                     if (index === 18) return '<b style="color:#E0E0E3;">Midnight</b>';
@@ -5357,8 +5357,27 @@ function createWeatherChart() {
     });
 }
 
+let currentWeatherField = 'windDirection';
+
+function selectWeatherField(field) {
+    currentWeatherField = field;
+    // Update button states
+    const btnIds = {
+        'windDirection': 'btnWindDirection',
+        'windSpeed': 'btnWindSpeed', 
+        'temperature': 'btnTemperature',
+        'pressure': 'btnPressure',
+        'moonPhase': 'btnMoonPhase'
+    };
+    Object.values(btnIds).forEach(id => {
+        document.getElementById(id)?.classList.remove('active');
+    });
+    document.getElementById(btnIds[field])?.classList.add('active');
+    updateWeatherChart();
+}
+
 function updateWeatherChart() {
-    const field = document.getElementById('weatherField').value;
+    const field = currentWeatherField;
     const { categories, dayCounts, nightCounts, title } = calculateWeatherDistribution(field);
     
     const chart = Highcharts.charts.find(c => c && c.renderTo && c.renderTo.id === 'chart_weather');
