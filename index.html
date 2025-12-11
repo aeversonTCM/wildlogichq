@@ -894,10 +894,10 @@
         
         <!-- Dashboard Tab -->
         <div class="tab-pane fade show active" id="dashboardContent" role="tabpanel">
-            <div class="container-fluid py-3">
+            <div class="container-fluid">
                 
                 <!-- Conditions Overview -->
-                <div class="card mb-4">
+                <div class="card mb-4 mt-4">
                     <div class="card-body py-3">
                         <div class="row align-items-center">
                             <!-- Optimal Hunt (Left) -->
@@ -928,13 +928,6 @@
                         <div class="row">
                             <!-- Activity Prediction -->
                             <div class="col-md-6">
-                                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                                    <select id="predictionAnimalFilter" class="form-select form-select-sm w-auto" onchange="updatePredictionChart()">
-                                        <option value="all">All Deer</option>
-                                        <option value="buck">Buck</option>
-                                        <option value="doe">Doe</option>
-                                    </select>
-                                </div>
                                 <div class="d-flex flex-wrap align-items-center gap-1 mb-2" style="font-size: 11px;">
                                     <span class="text-muted">Weights:</span>
                                     <span style="color: #AF7AC5;">Press</span>
@@ -5726,9 +5719,12 @@ function createForecastChart(days) {
 }
 
 // ============== ACTIVITY PREDICTION ==============
-function calculateHistoricalActivityRates(animalFilter) {
+function calculateHistoricalActivityRates(animalFilter, photosToUse = null) {
+    // Use provided photos or default to dashboardPhotos
+    const sourcePhotos = photosToUse || dashboardPhotos;
+    
     // Filter photos for daytime only, by animal type
-    const validPhotos = dashboardPhotos.filter(photo => {
+    const validPhotos = sourcePhotos.filter(photo => {
         const sun = sunData[photo.dateStr] || {};
         if (!sun.sunrise || !sun.sunset) return false;
         if (photo.timeMs < sun.sunrise || photo.timeMs >= sun.sunset) return false;
@@ -5955,8 +5951,9 @@ function createPredictionChart() {
         return;
     }
     
-    const animalFilter = document.getElementById('predictionAnimalFilter')?.value || 'all';
-    const rates = calculateHistoricalActivityRates(animalFilter);
+    // Filter for buck and doe only
+    const deerPhotos = dashboardPhotos.filter(p => p.animalType === 'buck' || p.animalType === 'doe');
+    const rates = calculateHistoricalActivityRates('all', deerPhotos);
     
     const categories = forecastDays.map(d => {
         const date = new Date(d.datetime + 'T12:00:00');
@@ -6039,11 +6036,7 @@ function createPredictionChart() {
             column: {
                 grouping: true,
                 shadow: false,
-                borderWidth: 0,
-                dataLabels: {
-                    enabled: true,
-                    style: { color: '#E0E0E3', textOutline: 'none', fontSize: '9px' }
-                }
+                borderWidth: 0
             }
         },
         
@@ -6052,14 +6045,16 @@ function createPredictionChart() {
             color: '#F4D03F',
             data: morningScores.map((score, idx) => ({
                 y: score,
-                color: idx === bestMorningIdx ? '#FFD700' : '#F4D03F'
+                color: idx === bestMorningIdx ? '#FFD700' : '#F4D03F',
+                dataLabels: idx === bestMorningIdx ? { enabled: true, format: '⭐', style: { fontSize: '14px', textOutline: 'none' }, y: -5 } : { enabled: false }
             }))
         }, {
             name: 'Evening',
             color: '#5D6D7E',
             data: eveningScores.map((score, idx) => ({
                 y: score,
-                color: idx === bestEveningIdx ? '#8395A7' : '#5D6D7E'
+                color: idx === bestEveningIdx ? '#8395A7' : '#5D6D7E',
+                dataLabels: idx === bestEveningIdx ? { enabled: true, format: '⭐', style: { fontSize: '14px', textOutline: 'none' }, y: -5 } : { enabled: false }
             }))
         }],
         
@@ -6073,8 +6068,9 @@ function updatePredictionChart() {
 }
 
 function updateOptimalConditions() {
-    const animalFilter = document.getElementById('predictionAnimalFilter')?.value || 'all';
-    const rates = calculateHistoricalActivityRates(animalFilter);
+    // Filter for buck and doe only
+    const deerPhotos = dashboardPhotos.filter(p => p.animalType === 'buck' || p.animalType === 'doe');
+    const rates = calculateHistoricalActivityRates('all', deerPhotos);
     
     if (rates.total === 0) {
         document.getElementById('optimalConditions').innerHTML = 
