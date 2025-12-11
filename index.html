@@ -241,6 +241,12 @@
             background-color: rgba(0,0,0,0.35) !important;
         }
         
+        /* Transparent modal content when opened from zoom */
+        #galleryModal.from-zoom .modal-content {
+            background: rgba(30, 30, 30, 0.75) !important;
+            backdrop-filter: blur(5px);
+        }
+        
         .zoom-modal-container {
             position: relative;
             background: var(--bg-card);
@@ -2930,19 +2936,21 @@ function populateGalleryGrids() {
 
 function openGalleryModal() { 
     if (filteredPhotos.length > 0) {
-        const fromZoom = zoomModalOpen;
-        galleryModalInstance.show();
-        // Add lighter backdrop when opening from zoom modal
-        if (fromZoom) {
-            const galleryEl = document.getElementById('galleryModal');
+        const galleryEl = document.getElementById('galleryModal');
+        if (zoomModalOpen) {
+            galleryEl.classList.add('from-zoom');
+            // Hide backdrop when opening from zoom modal
             galleryEl.addEventListener('shown.bs.modal', function handler() {
                 const backdrops = document.querySelectorAll('.modal-backdrop');
                 if (backdrops.length > 0) {
-                    backdrops[backdrops.length - 1].classList.add('gallery-from-zoom');
+                    backdrops[backdrops.length - 1].style.opacity = '0';
                 }
                 galleryEl.removeEventListener('shown.bs.modal', handler);
             });
+        } else {
+            galleryEl.classList.remove('from-zoom');
         }
+        galleryModalInstance.show();
     }
 }
 function openBulkGalleryModal() { if (selectedPhotos.size > 0) bulkGalleryModalInstance.show(); }
