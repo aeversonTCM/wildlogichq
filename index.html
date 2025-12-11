@@ -6076,10 +6076,10 @@ function createPredictionChart() {
     // Colors
     const morningFill = '#F4D03F';
     const eveningFill = '#5D6D7E';
-    const emptyColor = 'rgba(80, 80, 80, 0.3)';
-    const borderColor = '#555';
+    const borderColor = '#2d2d2d'; // Match chart background
     
     // Build 5 stacked series for morning and 5 for evening
+    // Only show filled blocks, skip empty ones
     const series = [];
     
     for (let block = 0; block < 5; block++) {
@@ -6094,12 +6094,9 @@ function createPredictionChart() {
             data: morningScores.map((score, idx) => {
                 const filledBlocks = Math.floor(score / 2);
                 const isFilled = block < filledBlocks;
-                return {
-                    y: 2,
-                    color: isFilled ? morningFill : emptyColor
-                };
+                return isFilled ? { y: 2, color: morningFill } : null;
             }),
-            borderWidth: 1,
+            borderWidth: 3,
             borderColor: borderColor,
             borderRadius: 3
         });
@@ -6115,12 +6112,9 @@ function createPredictionChart() {
             data: eveningScores.map((score, idx) => {
                 const filledBlocks = Math.floor(score / 2);
                 const isFilled = block < filledBlocks;
-                return {
-                    y: 2,
-                    color: isFilled ? eveningFill : emptyColor
-                };
+                return isFilled ? { y: 2, color: eveningFill } : null;
             }),
-            borderWidth: 1,
+            borderWidth: 3,
             borderColor: borderColor,
             borderRadius: 3
         });
@@ -6186,7 +6180,8 @@ function createPredictionChart() {
                 const day = forecastDays[idx];
                 const date = new Date(day.datetime + 'T12:00:00');
                 const dateStr = Highcharts.dateFormat('%a, %b. %e', date);
-                let html = `<b>${dateStr}</b><br/>`;
+                const star = idx === bestDayIdx ? ' ⭐' : '';
+                let html = `<b>${dateStr}${star}</b><br/>`;
                 html += `<span style="color:#F4D03F">Temp:</span> ${Math.round(day.tempmin)}° - ${Math.round(day.tempmax)}°F<br/>`;
                 html += `<span style="color:#AF7AC5">Press:</span> ${day.pressure} inHg<br/>`;
                 html += `<span style="color:#7FB3D5">Wind:</span> ${getWindDirection(day.winddir)} at ${Math.round(day.windspeed)}mph<br/>`;
