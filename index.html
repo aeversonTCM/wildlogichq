@@ -3691,6 +3691,7 @@ function applyDashboardFilters() {
     const cameraFilter = document.getElementById('cameraFilter').value;
     const locationFilter = document.getElementById('locationFilter').value;
     const tagFilter = document.getElementById('tagFilter').value;
+    const galleryFilter = document.getElementById('galleryFilter').value;
     const dayNightFilter = document.getElementById('dayNightFilter').value;
     
     // Map tag filter value to animalType
@@ -3710,6 +3711,7 @@ function applyDashboardFilters() {
     dashboardPhotos.forEach(photo => {
         if (cameraFilter && photo.camera !== cameraFilter) return;
         if (locationFilter && photo.location !== locationFilter) return;
+        if (galleryFilter && (!photo.photoGroupIds || !photo.photoGroupIds.includes(galleryFilter))) return;
         if (filterType && photo.animalType !== filterType) return;
         
         // Day/Night filter
@@ -4303,6 +4305,7 @@ async function processPhotosForPrediction() {
             photoUrl: photo.photoUrl,
             camera: photo.cameraName,
             location: photo.cameraLocation || '',
+            photoGroupIds: photo.photoGroupIds || [],
             name: (photo.photoGroupIds || []).map(id => groupsLookup[id]).filter(n => n).join(', '),
             animalType,
             windSpeed: photo.weatherRecord?.windDirection?.speed ?? '',
@@ -4599,6 +4602,7 @@ async function processPhotosForChart() {
             photoUrl: photo.photoUrl,
             camera: photo.cameraName,
             location: photo.cameraLocation || '',
+            photoGroupIds: photo.photoGroupIds || [],
             name: (photo.photoGroupIds || []).map(id => groupsLookup[id]).filter(n => n).join(', '),
             animalType,
             windSpeed: photo.weatherRecord?.windDirection?.speed ?? '',
@@ -5886,7 +5890,7 @@ function updateTooltipPanel(point) {
     }
     if (label) {
         html += `<span class="info-sep">|</span>`;
-        html += `<span class="info-label">Name:</span> <span class="info-name">${label}</span>`;
+        html += `<span class="info-label">Gallery:</span> <span class="info-name">${label}</span>`;
     }
     html += `</div>`;
     
