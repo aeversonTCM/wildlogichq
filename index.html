@@ -6078,8 +6078,7 @@ function createPredictionChart() {
     const totalScores = morningScores.map((m, idx) => m + eveningScores[idx]);
     const bestDayIdx = totalScores.indexOf(Math.max(...totalScores));
     
-    // Build columnrange series - each segment is an individual point
-    // 10 segments per bar: each score point gets 1 segment
+    // Build columnrange series - one series per day per period (20 total)
     const gap = 0.15;
     
     console.log('Morning scores:', morningScores);
@@ -6087,11 +6086,16 @@ function createPredictionChart() {
     console.log('Total scores:', totalScores);
     console.log('Best day idx:', bestDayIdx);
     
-    // Build all morning segments as one series
-    const morningData = [];
+    const series = [];
+    
+    // Create one series per day for morning and evening
     for (let idx = 0; idx < morningScores.length; idx++) {
-        const score = morningScores[idx];
-        for (let block = 0; block < score; block++) {
+        const morningScore = morningScores[idx];
+        const eveningScore = eveningScores[idx];
+        
+        // Morning series for this day
+        const morningData = [];
+        for (let block = 0; block < morningScore; block++) {
             const low = block + (gap / 2);
             const high = (block + 1) - (gap / 2);
             morningData.push({
@@ -6100,13 +6104,28 @@ function createPredictionChart() {
                 high: high
             });
         }
-    }
-    
-    // Build all evening segments as one series
-    const eveningData = [];
-    for (let idx = 0; idx < eveningScores.length; idx++) {
-        const score = eveningScores[idx];
-        for (let block = 0; block < score; block++) {
+        
+        if (morningData.length > 0) {
+            series.push({
+                name: idx === 0 ? 'Morning' : undefined,
+                linkedTo: idx === 0 ? undefined : 'morning',
+                id: idx === 0 ? 'morning' : undefined,
+                type: 'columnrange',
+                showInLegend: idx === 0,
+                color: morningFill,
+                pointPlacement: -0.12,
+                pointWidth: 22,
+                grouping: false,
+                data: morningData,
+                borderWidth: 1,
+                borderColor: borderColor,
+                borderRadius: 3
+            });
+        }
+        
+        // Evening series for this day
+        const eveningData = [];
+        for (let block = 0; block < eveningScore; block++) {
             const low = block + (gap / 2);
             const high = (block + 1) - (gap / 2);
             eveningData.push({
@@ -6115,33 +6134,25 @@ function createPredictionChart() {
                 high: high
             });
         }
+        
+        if (eveningData.length > 0) {
+            series.push({
+                name: idx === 0 ? 'Evening' : undefined,
+                linkedTo: idx === 0 ? undefined : 'evening',
+                id: idx === 0 ? 'evening' : undefined,
+                type: 'columnrange',
+                showInLegend: idx === 0,
+                color: eveningFill,
+                pointPlacement: 0.12,
+                pointWidth: 22,
+                grouping: false,
+                data: eveningData,
+                borderWidth: 1,
+                borderColor: borderColor,
+                borderRadius: 3
+            });
+        }
     }
-    
-    const series = [{
-        name: 'Morning',
-        type: 'columnrange',
-        color: morningFill,
-        pointPlacement: -0.12,
-        pointWidth: 22,
-        grouping: false,
-        dataLabels: { enabled: false },
-        data: morningData,
-        borderWidth: 1,
-        borderColor: borderColor,
-        borderRadius: 3
-    }, {
-        name: 'Evening',
-        type: 'columnrange',
-        color: eveningFill,
-        pointPlacement: 0.12,
-        pointWidth: 22,
-        grouping: false,
-        dataLabels: { enabled: false },
-        data: eveningData,
-        borderWidth: 1,
-        borderColor: borderColor,
-        borderRadius: 3
-    }];
     
     Highcharts.chart('chart_prediction', {
         chart: {
