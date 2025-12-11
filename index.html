@@ -4841,7 +4841,21 @@ function createMainChart() {
                 point: {
                     events: {
                         mouseOver: function() {
-                            updateTooltipPanel(this);
+                            const point = this;
+                            // Clear any pending tooltip update
+                            if (window.tooltipDelayTimer) {
+                                clearTimeout(window.tooltipDelayTimer);
+                            }
+                            // Delay tooltip update by 300ms
+                            window.tooltipDelayTimer = setTimeout(() => {
+                                updateTooltipPanel(point);
+                            }, 300);
+                        },
+                        mouseOut: function() {
+                            // Clear pending tooltip if mouse leaves before delay
+                            if (window.tooltipDelayTimer) {
+                                clearTimeout(window.tooltipDelayTimer);
+                            }
                         }
                     }
                 }
