@@ -709,13 +709,13 @@
         <div class="d-flex justify-content-between align-items-center">
             <div class="d-flex gap-2 align-items-center flex-wrap">
                 <select id="locationFilter" class="form-select form-select-sm" style="width: auto;" onchange="applyFilters()">
-                    <option value="">All Locations</option>
+                    <option value="">Locations</option>
                 </select>
                 <select id="cameraFilter" class="form-select form-select-sm" style="width: auto;" onchange="applyFilters()">
-                    <option value="">All Cameras</option>
+                    <option value="">Cameras</option>
                 </select>
                 <select id="tagFilter" class="form-select form-select-sm" style="width: auto;" onchange="applyFilters()">
-                    <option value="">All Tags</option>
+                    <option value="">Tags</option>
                     <option value="untagged">Untagged</option>
                     <option value="Buck">Buck</option>
                     <option value="Doe">Doe</option>
@@ -1059,30 +1059,30 @@
                                 <i class="bi bi-sliders me-2"></i>Prediction Weights
                             </div>
                             <div class="card-body">
-                                <p class="text-muted small mb-3">Adjust how much each weather factor influences the Activity Prediction score.</p>
+                                <p class="text-muted small mb-3">Adjust how much each weather factor influences the Activity Prediction score (must total 100%).</p>
                                 <div class="row g-3">
                                     <div class="col-6 col-md-4">
-                                        <label class="form-label small" style="color: #AF7AC5;">Pressure</label>
-                                        <input type="number" id="weightPressure" value="3" min="0" max="10" class="form-control form-control-sm" onchange="updatePredictionChart()">
+                                        <label class="form-label small" style="color: #AF7AC5;">Pressure %</label>
+                                        <input type="number" id="weightPressure" value="30" min="0" max="100" class="form-control form-control-sm" onchange="updatePredictionChart()">
                                     </div>
                                     <div class="col-6 col-md-4">
-                                        <label class="form-label small" style="color: #7FB3D5;">Wind Direction</label>
-                                        <input type="number" id="weightWindDir" value="2" min="0" max="10" class="form-control form-control-sm" onchange="updatePredictionChart()">
+                                        <label class="form-label small" style="color: #7FB3D5;">Wind Direction %</label>
+                                        <input type="number" id="weightWindDir" value="20" min="0" max="100" class="form-control form-control-sm" onchange="updatePredictionChart()">
                                     </div>
                                     <div class="col-6 col-md-4">
-                                        <label class="form-label small" style="color: #7FB3D5;">Wind Speed</label>
-                                        <input type="number" id="weightWindSpeed" value="2" min="0" max="10" class="form-control form-control-sm" onchange="updatePredictionChart()">
+                                        <label class="form-label small" style="color: #7FB3D5;">Wind Speed %</label>
+                                        <input type="number" id="weightWindSpeed" value="20" min="0" max="100" class="form-control form-control-sm" onchange="updatePredictionChart()">
                                     </div>
                                     <div class="col-6 col-md-4">
-                                        <label class="form-label small" style="color: #D4AC0D;">Moon Phase</label>
-                                        <input type="number" id="weightMoon" value="2" min="0" max="10" class="form-control form-control-sm" onchange="updatePredictionChart()">
+                                        <label class="form-label small" style="color: #D4AC0D;">Moon Phase %</label>
+                                        <input type="number" id="weightMoon" value="20" min="0" max="100" class="form-control form-control-sm" onchange="updatePredictionChart()">
                                     </div>
                                     <div class="col-6 col-md-4">
-                                        <label class="form-label small" style="color: #F4D03F;">Temperature</label>
-                                        <input type="number" id="weightTemp" value="1" min="0" max="10" class="form-control form-control-sm" onchange="updatePredictionChart()">
+                                        <label class="form-label small" style="color: #F4D03F;">Temperature %</label>
+                                        <input type="number" id="weightTemp" value="10" min="0" max="100" class="form-control form-control-sm" onchange="updatePredictionChart()">
                                     </div>
                                     <div class="col-6 col-md-4 d-flex align-items-end">
-                                        <span class="text-muted" id="totalWeightDisplay">Total: 10</span>
+                                        <span class="text-muted" id="totalWeightDisplay">= 100%</span>
                                     </div>
                                 </div>
                             </div>
@@ -2630,7 +2630,7 @@ function populateTagFilter() {
 function populateGalleryFilter() {
     const select = document.getElementById('galleryFilter');
     const current = select.value;
-    select.innerHTML = '<option value="">All Photos</option>';
+    select.innerHTML = '<option value="">Gallery</option>';
     galleries.forEach(g => {
         const sel = g.photoGroupId === current ? ' selected' : '';
         select.innerHTML += `<option value="${g.photoGroupId}"${sel}>${g.name} (${g.photoCount || g.count || 0})</option>`;
@@ -2749,13 +2749,13 @@ async function loadPhotos() {
 
 function populateFilters() {
     const cameraSelect = document.getElementById('cameraFilter');
-    cameraSelect.innerHTML = '<option value="">All Cameras</option>';
+    cameraSelect.innerHTML = '<option value="">Cameras</option>';
     Array.from(cameras).sort().forEach(cam => {
         cameraSelect.innerHTML += `<option value="${cam}">${cam}</option>`;
     });
     
     const locationSelect = document.getElementById('locationFilter');
-    locationSelect.innerHTML = '<option value="">All Locations</option>';
+    locationSelect.innerHTML = '<option value="">Locations</option>';
     Array.from(locations).sort().forEach(loc => {
         locationSelect.innerHTML += `<option value="${loc}">${loc}</option>`;
     });
@@ -3747,7 +3747,7 @@ function populateDashboardFilters() {
     // Populate unified camera filter (if not already populated from photos)
     const cameraSelect = document.getElementById('cameraFilter');
     if (cameraSelect.options.length <= 1) {
-        cameraSelect.innerHTML = '<option value="">All Cameras</option>';
+        cameraSelect.innerHTML = '<option value="">Cameras</option>';
         Array.from(cameras).sort().forEach(cam => {
             cameraSelect.innerHTML += `<option value="${cam}">${cam}</option>`;
         });
@@ -3756,7 +3756,7 @@ function populateDashboardFilters() {
     // Populate unified location filter
     const locationSelect = document.getElementById('locationFilter');
     if (locationSelect.options.length <= 1) {
-        locationSelect.innerHTML = '<option value="">All Locations</option>';
+        locationSelect.innerHTML = '<option value="">Locations</option>';
         Array.from(locations).sort().forEach(loc => {
             locationSelect.innerHTML += `<option value="${loc}">${loc}</option>`;
         });
@@ -6011,18 +6011,18 @@ function getForecastBucketIndex(day, field) {
 
 function calculateActivityScore(day, rates, period = 'all') {
     const weights = {
-        pressure: parseInt(document.getElementById('weightPressure')?.value) || 3,
-        temp: parseInt(document.getElementById('weightTemp')?.value) || 1,
-        windDir: parseInt(document.getElementById('weightWindDir')?.value) || 2,
-        windSpeed: parseInt(document.getElementById('weightWindSpeed')?.value) || 2,
-        moonPhase: parseInt(document.getElementById('weightMoon')?.value) || 2
+        pressure: parseInt(document.getElementById('weightPressure')?.value) || 30,
+        temp: parseInt(document.getElementById('weightTemp')?.value) || 10,
+        windDir: parseInt(document.getElementById('weightWindDir')?.value) || 20,
+        windSpeed: parseInt(document.getElementById('weightWindSpeed')?.value) || 20,
+        moonPhase: parseInt(document.getElementById('weightMoon')?.value) || 20
     };
     
     const totalWeight = Object.values(weights).reduce((a, b) => a + b, 0);
     const totalDisplay = document.getElementById('totalWeightDisplay');
     if (totalDisplay) {
-        totalDisplay.textContent = `= ${totalWeight}`;
-        totalDisplay.style.color = totalWeight === 10 ? '#4CAF50' : '#FFC107';
+        totalDisplay.textContent = `= ${totalWeight}%`;
+        totalDisplay.style.color = totalWeight === 100 ? '#4CAF50' : '#FFC107';
     }
     
     const suffix = period === 'morning' ? 'Morning' : period === 'evening' ? 'Evening' : '';
@@ -6047,7 +6047,7 @@ function calculateActivityScore(day, rates, period = 'all') {
     }
     
     if (maxPossible === 0) return 1;
-    return Math.max(1, Math.round((totalScore / maxPossible) * 10));
+    return Math.max(1, Math.round((totalScore / maxPossible) * 100));
 }
 
 function createPredictionChart() {
@@ -6078,11 +6078,12 @@ function createPredictionChart() {
     const eveningFill = '#5D6D7E';
     const borderColor = '#2d2d2d'; // Match chart background
     
-    // Build 5 stacked series for morning and 5 for evening
-    // Only show filled blocks, skip empty ones
+    // Build 7 stacked series for morning and 7 for evening
+    // Each block worth 100/7 ≈ 14.29
     const series = [];
+    const blockHeight = 100 / 7;
     
-    for (let block = 0; block < 5; block++) {
+    for (let block = 0; block < 7; block++) {
         // Morning block
         series.push({
             name: block === 0 ? 'Morning' : undefined,
@@ -6092,9 +6093,9 @@ function createPredictionChart() {
             showInLegend: block === 0,
             color: morningFill,
             data: morningScores.map((score, idx) => {
-                const filledBlocks = Math.floor(score / 2);
+                const filledBlocks = Math.round(score * 7 / 100);
                 const isFilled = block < filledBlocks;
-                return isFilled ? { y: 2, color: morningFill } : null;
+                return isFilled ? { y: blockHeight, color: morningFill } : null;
             }),
             borderWidth: 3,
             borderColor: borderColor,
@@ -6110,9 +6111,9 @@ function createPredictionChart() {
             showInLegend: block === 0,
             color: eveningFill,
             data: eveningScores.map((score, idx) => {
-                const filledBlocks = Math.floor(score / 2);
+                const filledBlocks = Math.round(score * 7 / 100);
                 const isFilled = block < filledBlocks;
-                return isFilled ? { y: 2, color: eveningFill } : null;
+                return isFilled ? { y: blockHeight, color: eveningFill } : null;
             }),
             borderWidth: 3,
             borderColor: borderColor,
@@ -6151,13 +6152,13 @@ function createPredictionChart() {
         
         yAxis: {
             min: 0,
-            max: 10,
+            max: 100,
             gridLineWidth: 0,
             labels: { enabled: false },
             title: { text: null },
             reversedStacks: false,
             plotLines: [{
-                value: 10,
+                value: 100,
                 color: '#555',
                 width: 1,
                 zIndex: 3
