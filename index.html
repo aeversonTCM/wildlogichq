@@ -6082,13 +6082,10 @@ function createPredictionChart() {
     // 10 segments per bar: each score point gets 1 segment
     const gap = 0.15;
     
-    // Star goes on top of morning bar for best day
-    const bestMorningTopBlock = morningScores[bestDayIdx] - 1;
-    
     console.log('Morning scores:', morningScores);
     console.log('Evening scores:', eveningScores);
     console.log('Total scores:', totalScores);
-    console.log('Best day idx:', bestDayIdx, 'morning top block:', bestMorningTopBlock);
+    console.log('Best day idx:', bestDayIdx);
     
     // Build all morning segments as one series
     const morningData = [];
@@ -6097,12 +6094,10 @@ function createPredictionChart() {
         for (let block = 0; block < score; block++) {
             const low = block + (gap / 2);
             const high = (block + 1) - (gap / 2);
-            const showStar = (idx === bestDayIdx) && (block === bestMorningTopBlock);
             morningData.push({
                 x: idx,
                 low: low,
-                high: high,
-                dataLabels: showStar ? { enabled: true, format: '⭐', style: { fontSize: '14px', textOutline: 'none' }, y: -5 } : { enabled: false }
+                high: high
             });
         }
     }
@@ -6164,7 +6159,14 @@ function createPredictionChart() {
         xAxis: {
             categories: categories,
             labels: { 
-                style: { color: '#E0E0E3' }
+                style: { color: '#E0E0E3' },
+                formatter: function() {
+                    if (this.pos === bestDayIdx) {
+                        return '<span style="color: #F4D03F; font-weight: bold;">' + this.value + '</span>';
+                    }
+                    return this.value;
+                },
+                useHTML: true
             },
             lineColor: '#555',
             tickColor: '#555'
@@ -6191,8 +6193,9 @@ function createPredictionChart() {
             style: { color: '#E0E0E3' },
             useHTML: true,
             formatter: function() {
-                const idx = this.points[0].point.index;
+                const idx = this.points[0].point.x;
                 const day = forecastDays[idx];
+                if (!day) return false;
                 const date = new Date(day.datetime + 'T12:00:00');
                 const dateStr = Highcharts.dateFormat('%a, %b. %e', date);
                 let html = `<b>${dateStr}</b><br/>`;
