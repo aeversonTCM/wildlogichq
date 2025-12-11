@@ -330,12 +330,12 @@
         
         /* Quick Tag Info Panel */
         .zoom-info {
-            padding: 12px 15px;
+            padding: 12px 15px 4px 15px;
             background: var(--bg-card);
             border-top: 1px solid #444;
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
+            align-items: flex-end;
         }
         
         .zoom-info-text {
@@ -370,7 +370,7 @@
         /* Quick Tag Action Buttons - 3 Column Layout */
         .zoom-actions-wrapper {
             display: flex;
-            padding: 12px 15px;
+            padding: 4px 15px 12px 15px;
             background: var(--bg-card);
         }
         
@@ -392,7 +392,7 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            justify-content: flex-end;
+            justify-content: flex-start;
             align-items: flex-end;
             gap: 8px;
         }
@@ -3691,7 +3691,6 @@ function applyDashboardFilters() {
     const cameraFilter = document.getElementById('cameraFilter').value;
     const locationFilter = document.getElementById('locationFilter').value;
     const tagFilter = document.getElementById('tagFilter').value;
-    const galleryFilter = document.getElementById('galleryFilter').value;
     const dayNightFilter = document.getElementById('dayNightFilter').value;
     
     // Map tag filter value to animalType
@@ -3711,7 +3710,6 @@ function applyDashboardFilters() {
     dashboardPhotos.forEach(photo => {
         if (cameraFilter && photo.camera !== cameraFilter) return;
         if (locationFilter && photo.location !== locationFilter) return;
-        if (galleryFilter && (!photo.photoGroupIds || !photo.photoGroupIds.includes(galleryFilter))) return;
         if (filterType && photo.animalType !== filterType) return;
         
         // Day/Night filter
@@ -3736,7 +3734,6 @@ function applyDashboardFilters() {
             x: photo.dateMs,
             y: photo.timeMs,
             camera: photo.camera,
-            location: photo.location,
             label: photo.name,
             photoId: photo.photoId,
             photoUrl: photo.photoUrl,
@@ -4305,7 +4302,6 @@ async function processPhotosForPrediction() {
             photoUrl: photo.photoUrl,
             camera: photo.cameraName,
             location: photo.cameraLocation || '',
-            photoGroupIds: photo.photoGroupIds || [],
             name: (photo.photoGroupIds || []).map(id => groupsLookup[id]).filter(n => n).join(', '),
             animalType,
             windSpeed: photo.weatherRecord?.windDirection?.speed ?? '',
@@ -4602,7 +4598,6 @@ async function processPhotosForChart() {
             photoUrl: photo.photoUrl,
             camera: photo.cameraName,
             location: photo.cameraLocation || '',
-            photoGroupIds: photo.photoGroupIds || [],
             name: (photo.photoGroupIds || []).map(id => groupsLookup[id]).filter(n => n).join(', '),
             animalType,
             windSpeed: photo.weatherRecord?.windDirection?.speed ?? '',
@@ -4630,7 +4625,6 @@ async function processPhotosForChart() {
             x: photo.dateMs,
             y: photo.timeMs,
             camera: photo.camera,
-            location: photo.location,
             label: photo.name,
             photoId: photo.photoId,
             photoUrl: photo.photoUrl,
@@ -5858,7 +5852,6 @@ function updateTooltipPanel(point) {
     if (!camera) return;
     
     const photoUrl = point.photoUrl || point.options?.photoUrl;
-    const location = point.location || point.options?.location;
     const label = point.label || point.options?.label;
     const windSpeed = point.windSpeed ?? point.options?.windSpeed;
     const windDirection = point.windDirection ?? point.options?.windDirection;
@@ -5870,27 +5863,23 @@ function updateTooltipPanel(point) {
         html += `<img src="${photoUrl}" alt="Trail cam photo" />`;
     }
     
-    // Line 1: Location | Camera
+    // Line 1: Camera | Time
     html += `<div class="info-line">`;
-    if (location) {
-        html += `<span class="info-label">Location:</span> <span class="info-value">${location}</span>`;
-        html += `<span class="info-sep">|</span>`;
-    }
     html += `<span class="info-label">Camera:</span> <span class="info-value">${camera}</span>`;
-    html += `</div>`;
-    
-    // Line 2: Date | Time | Wind | Name
-    html += `<div class="info-line">`;
-    html += `<span class="info-label">Date:</span> <span class="info-value">${Highcharts.dateFormat('%b %d', point.x)}</span>`;
     html += `<span class="info-sep">|</span>`;
     html += `<span class="info-label">Time:</span> <span class="info-value">${Highcharts.dateFormat('%l:%M %P', point.y)}</span>`;
+    html += `</div>`;
+    
+    // Line 2: Wind | Date | Name
+    html += `<div class="info-line">`;
     if (windSpeed !== '' && windSpeed !== undefined && windDirection !== '' && windDirection !== undefined) {
-        html += `<span class="info-sep">|</span>`;
         html += `<span class="info-label">Wind:</span> <span class="info-value">${getWindDirection(windDirection)} at ${windSpeed}mph</span>`;
+        html += `<span class="info-sep">|</span>`;
     }
+    html += `<span class="info-label">Date:</span> <span class="info-value">${Highcharts.dateFormat('%b %d', point.x)}</span>`;
     if (label) {
         html += `<span class="info-sep">|</span>`;
-        html += `<span class="info-label">Gallery:</span> <span class="info-name">${label}</span>`;
+        html += `<span class="info-label">Name:</span> <span class="info-name">${label}</span>`;
     }
     html += `</div>`;
     
