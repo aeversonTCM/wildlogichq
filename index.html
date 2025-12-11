@@ -6086,6 +6086,10 @@ function createPredictionChart() {
     
     const series = [];
     
+    // Calculate filled blocks for best days (for star placement)
+    const bestMorningBlocks = Math.floor(morningScores[bestMorningIdx] / 2);
+    const bestEveningBlocks = Math.floor(eveningScores[bestEveningIdx] / 2);
+    
     for (let block = 0; block < 5; block++) {
         const low = block * 2 + (gap / 2);
         const high = (block + 1) * 2 - (gap / 2);
@@ -6097,18 +6101,21 @@ function createPredictionChart() {
             id: block === 0 ? 'morning' : undefined,
             type: 'columnrange',
             showInLegend: block === 0,
-            pointPlacement: -0.15,
-            pointWidth: 20,
+            color: morningFill,
+            pointPlacement: -0.2,
+            pointWidth: 18,
+            grouping: false,
             data: morningScores.map((score, idx) => {
                 const filledBlocks = Math.floor(score / 2);
                 if (block >= filledBlocks) return null;
                 const isBest = idx === bestMorningIdx;
+                const isTopBlock = block === filledBlocks - 1;
                 return {
                     x: idx,
                     low: low,
                     high: high,
                     color: isBest ? morningBest : morningFill,
-                    dataLabels: (block === filledBlocks - 1 && isBest) ? { enabled: true, format: '⭐', style: { fontSize: '14px', textOutline: 'none' }, y: -5 } : { enabled: false }
+                    dataLabels: (isTopBlock && isBest) ? { enabled: true, format: '⭐', style: { fontSize: '14px', textOutline: 'none' }, y: -5 } : { enabled: false }
                 };
             }),
             borderWidth: 1,
@@ -6123,18 +6130,21 @@ function createPredictionChart() {
             id: block === 0 ? 'evening' : undefined,
             type: 'columnrange',
             showInLegend: block === 0,
-            pointPlacement: 0.15,
-            pointWidth: 20,
+            color: eveningFill,
+            pointPlacement: 0.2,
+            pointWidth: 18,
+            grouping: false,
             data: eveningScores.map((score, idx) => {
                 const filledBlocks = Math.floor(score / 2);
                 if (block >= filledBlocks) return null;
                 const isBest = idx === bestEveningIdx;
+                const isTopBlock = block === filledBlocks - 1;
                 return {
                     x: idx,
                     low: low,
                     high: high,
                     color: isBest ? eveningBest : eveningFill,
-                    dataLabels: (block === filledBlocks - 1 && isBest) ? { enabled: true, format: '⭐', style: { fontSize: '14px', textOutline: 'none' }, y: -5 } : { enabled: false }
+                    dataLabels: (isTopBlock && isBest) ? { enabled: true, format: '⭐', style: { fontSize: '14px', textOutline: 'none' }, y: -5 } : { enabled: false }
                 };
             }),
             borderWidth: 1,
