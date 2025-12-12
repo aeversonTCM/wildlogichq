@@ -160,7 +160,7 @@
         
         /* Hide login card during loading */
         #hqGate.loading .login-card { display: none !important; }
-
+        
         /* Move logo down during loading */
         #hqGate.loading img { margin-top: 35vh !important; }
         
@@ -1408,7 +1408,7 @@ async function checkHqAccess() {
     document.getElementById('hqError').style.display = 'none';
     
     // Hide HQ Gate immediately and show loading
-    document.getElementById('hqGate').style.display = '0.5';
+    document.getElementById('hqGate').style.display = 'none';
     showLoading('Verifying access...');
     
     try {
