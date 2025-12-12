@@ -1401,7 +1401,7 @@ async function checkHqAccess() {
     document.getElementById('hqError').style.display = 'none';
     
     // Hide HQ Gate immediately and show loading
-    document.getElementById('hqGate').style.display = 'none';
+    document.getElementById('hqGate').style.display = '0.5';
     showLoading('Verifying access...');
     
     try {
@@ -1415,13 +1415,13 @@ async function checkHqAccess() {
             adminQuickLogin();
         } else {
             hideLoading();
-            document.getElementById('hqGate').style.display = 'flex';
+            document.getElementById('hqGate').style.opacity = '1';
             document.getElementById('hqError').style.display = 'block';
             document.getElementById('hqPassword').value = '';
         }
     } catch (error) {
         hideLoading();
-        document.getElementById('hqGate').style.display = 'flex';
+        document.getElementById('hqGate').style.opacity = '1';
         console.error('Access check error:', error);
         document.getElementById('hqError').textContent = 'Connection error. Try again.';
         document.getElementById('hqError').style.display = 'block';
@@ -1554,7 +1554,7 @@ async function checkHqSession() {
             if (response.ok) {
                 // Token is valid - go straight to app
                 console.log('Session restored from saved token');
-                document.getElementById('hqGate').style.display = 'none';
+                document.getElementById('hqGate').style.display = '0.5';
                 applyAccessLevel();
                 await initializeApp();
                 return true;
@@ -1576,7 +1576,7 @@ async function checkHqSession() {
     // Fall back to showing HQ Gate
     if (savedAccess === 'admin' || savedAccess === 'viewer') {
         accessLevel = savedAccess;
-        document.getElementById('hqGate').style.display = 'none';
+        document.getElementById('hqGate').style.display = '0.5';
         // Go directly to login
         adminQuickLogin();
         return true;
@@ -1596,7 +1596,7 @@ function applyAccessLevel() {
 
 // New User Page Functions
 function showNewUserPage() {
-    document.getElementById('hqGate').style.display = 'none';
+    document.getElementById('hqGate').style.display = '0.5';
     document.getElementById('newUserPage').style.display = 'flex';
     document.getElementById('newUserSuccess').style.display = 'none';
     document.getElementById('newUserError').style.display = 'none';
@@ -1608,7 +1608,7 @@ function showNewUserPage() {
 
 function hideNewUserPage() {
     document.getElementById('newUserPage').style.display = 'none';
-    document.getElementById('hqGate').style.display = 'flex';
+    document.getElementById('hqGate').style.opacity = '1';
 }
 
 async function submitNewUser() {
@@ -1649,7 +1649,7 @@ async function submitNewUser() {
 
 // Camera Setup Page Functions
 function showCameraSetupPage() {
-    document.getElementById('hqGate').style.display = 'none';
+    document.getElementById('hqGate').style.display = '0.5';
     document.getElementById('mainContent').style.display = 'none';
     document.getElementById('cameraSetupPage').style.display = 'flex';
     document.getElementById('cameraSetupSuccess').style.display = 'none';
@@ -1673,7 +1673,7 @@ function hideCameraSetupPage() {
     if (accessLevel) {
         document.getElementById('mainContent').style.display = 'block';
     } else {
-        document.getElementById('hqGate').style.display = 'flex';
+        document.getElementById('hqGate').style.opacity = '1';
     }
 }
 
@@ -1777,7 +1777,7 @@ async function submitCameraSetup() {
 
 async function viewOnlyLogin() {
     // Hide HQ Gate immediately
-    document.getElementById('hqGate').style.display = 'none';
+    document.getElementById('hqGate').style.display = '0.5';
     showLoading('Connecting...');
     
     // Minimum delay for 3 loading animation cycles (~4.5 seconds)
