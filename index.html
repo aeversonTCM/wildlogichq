@@ -152,7 +152,7 @@
             flex-direction: column;
             justify-content: flex-start;
             align-items: center;
-            padding-top: 65vh;
+            padding-top: 35vh;
             z-index: 9999;
         }
         
@@ -1405,7 +1405,7 @@ async function checkHqAccess() {
     document.getElementById('hqError').style.display = 'none';
     
     // Hide HQ Gate immediately and show loading
-    document.getElementById('hqGate').style.display = 'none';
+    document.getElementById('hqGate').style.display = '0.35';
     showLoading('Verifying access...');
     
     try {
